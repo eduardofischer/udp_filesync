@@ -1,5 +1,5 @@
-#ifndef __filesync__
-#define __filesync__
+#ifndef __filesync_client__
+#define __filesync_client__
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath);

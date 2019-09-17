@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "../include/fsync_client.h"
+#include "../include/socket.h"
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath){
@@ -38,6 +39,28 @@ int exitClient(){
 };
 
 int main(int argc, char const *argv[]){
+    int socket, res;
+    char buffer[256];
+
+    if(argc < 2){
+        fprintf(stderr, "ERROR! Invalid number of arguments.\n");
+        exit(0);
+    }
+
+    if((socket = create_udp_socket()) < 0){
+        fprintf(stderr,"ERROR opening socket\n");
+        exit(0);
+    }
+
+	bzero(buffer, 256);
+	strcpy(buffer, "Teste do socket UDP");
+
+    res = send_message(socket, (char *)argv[1], PORT, buffer, strlen(buffer));
+
+    if(res == 0)
+        printf("ACK Recebido!\n");
+    else 
+        printf("Erro! n=%d\n", res);
     
     return 0;
 }

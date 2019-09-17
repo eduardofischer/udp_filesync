@@ -1,14 +1,18 @@
 CC=gcc
-LIB_DIR=./lib
 INC_DIR=./include
 BIN_DIR=./bin
 SRC_DIR=./src
+CFLAGS=-Wall -DPORT=3000
 
-all: fsync_client
-	$(CC) -o client $(BIN_DIR)/fsync_client.o
+SOURCES=$(SRC_DIR)/socket.c
 
+all: fsync_client fsync_server
+		
 fsync_client:
-	$(CC) -c $(SRC_DIR)/fsync_client.c -o $(BIN_DIR)/fsync_client.o -Wall
+	$(CC) $(CFLAGS) -o client $(SRC_DIR)/fsync_client.c $(SOURCES)
+
+fsync_server:
+	$(CC) $(CFLAGS) -o server $(SRC_DIR)/fsync_server.c $(SOURCES)
 
 clean:
-	rm -rf $(LIB_DIR)/*.a $(BIN_DIR)/*.o $(SRC_DIR)/*~ $(INC_DIR)/*~ *~ client
+	rm -rf $(BIN_DIR)/*.o $(SRC_DIR)/*~ $(INC_DIR)/*~ *~ client server

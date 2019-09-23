@@ -32,19 +32,19 @@ int bind_udp_socket(int socket, char *ip, unsigned int port){
 }
 
 /* Envia uma mensagem */
-int send_message(int socket, char *ip, unsigned int port, char *buffer, int length){
+int send_message(int socket, REMOTE_ADDR addr, char *buffer, int length){
     struct sockaddr_in dest_addr;
     struct hostent *server;
     int n;
-    char ack_buffer[256];
+    PACKET response;
 
-    if((server = gethostbyname(ip)) == NULL) {
+    if((server = gethostbyname(addr.ip)) == NULL) {
         fprintf(stderr,"ERROR! No such host\n");
         exit(0);
     }	
 
     dest_addr.sin_family = AF_INET;     
-	dest_addr.sin_port = htons(port);    
+	dest_addr.sin_port = htons(addr.port);    
 	dest_addr.sin_addr = *((struct in_addr *)server->h_addr);
 	bzero(&(dest_addr.sin_zero), 8);  
 
@@ -52,9 +52,19 @@ int send_message(int socket, char *ip, unsigned int port, char *buffer, int leng
 	if (n < 0) 
 		printf("ERROR sendto %d\n", errno);
 	
-	n = recvfrom(socket, &ack_buffer, sizeof(int), 0, NULL, 0);
-	if (n < 0)
+	n = recvfrom(socket, &response, sizeof(PACKET), 0, NULL, 0);
+	if (n < 0 || response.header.type != ACK){
 		printf("ERROR recvfrom %d\n", errno);
+        return -1;
+    }
 
-    return *(int*)ack_buffer;
+    return 0;
+}
+
+/** Envia mensagem inicial enviada quando um cliente se conecta ao servidor */
+int hello(int socket, REMOTE_ADDR server, char *username){
+    PACKET packet;
+
+    packet.header.type = HELLO;
+    strcpy(&(packet.data), &username);    
 }

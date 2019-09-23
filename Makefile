@@ -8,10 +8,10 @@ SOURCES=$(SRC_DIR)/socket.c
 
 all: fsync_client fsync_server
 		
-fsync_client:
+fsync_client: $(SRC_DIR)/fsync_client.c $(SOURCES)
 	$(CC) $(CFLAGS) -o client $(SRC_DIR)/fsync_client.c $(SOURCES)
 
-fsync_server:
+fsync_server: $(SRC_DIR)/fsync_server.c $(SOURCES)
 	$(CC) $(CFLAGS) -o server $(SRC_DIR)/fsync_server.c $(SOURCES)
 
 clean:

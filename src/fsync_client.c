@@ -41,11 +41,15 @@ int exitClient(){
 int main(int argc, char const *argv[]){
     int socket, res;
     char buffer[256];
+    REMOTE_ADDR server;
 
     if(argc < 2){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");
         exit(0);
     }
+
+    server.ip = (char *)argv[1];
+    server.port = PORT;
 
     if((socket = create_udp_socket()) < 0){
         fprintf(stderr,"ERROR opening socket\n");
@@ -55,7 +59,7 @@ int main(int argc, char const *argv[]){
 	bzero(buffer, 256);
 	strcpy(buffer, "Teste do socket UDP");
 
-    res = send_message(socket, (char *)argv[1], PORT, buffer, strlen(buffer));
+    res = send_message(socket, server, buffer, strlen(buffer));
 
     if(res == 0)
         printf("ACK Recebido!\n");

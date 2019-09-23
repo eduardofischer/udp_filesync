@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "../include/fsync_client.h"
-#include "../include/socket.h"
+#include "../include/client.h"
+#include "../include/communication.h"
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath){
@@ -42,6 +42,7 @@ int main(int argc, char const *argv[]){
     int socket, res;
     char buffer[256];
     REMOTE_ADDR server;
+    PACKET msg;
 
     if(argc < 2){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");
@@ -57,9 +58,9 @@ int main(int argc, char const *argv[]){
     }
 
 	bzero(buffer, 256);
-	strcpy(buffer, "Teste do socket UDP");
+	strcpy((char *) &(msg.data), "Teste do socket UDP");
 
-    res = send_message(socket, server, buffer, strlen(buffer));
+    res = send_packet(socket, server, msg);
 
     if(res == 0)
         printf("ACK Recebido!\n");

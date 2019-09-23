@@ -2,17 +2,17 @@ CC=gcc
 INC_DIR=./include
 BIN_DIR=./bin
 SRC_DIR=./src
-CFLAGS=-Wall -DPORT=3000
+CFLAGS=-Wall
 
-SOURCES=$(SRC_DIR)/socket.c
+SOURCES=$(SRC_DIR)/communication.c
 
-all: fsync_client fsync_server
+all: client server
 		
-fsync_client: $(SRC_DIR)/fsync_client.c $(SOURCES)
-	$(CC) $(CFLAGS) -o client $(SRC_DIR)/fsync_client.c $(SOURCES)
+client: $(SRC_DIR)/client.c $(SOURCES)
+	$(CC) $(CFLAGS) -o client $(SRC_DIR)/client.c $(SOURCES)
 
-fsync_server: $(SRC_DIR)/fsync_server.c $(SOURCES)
-	$(CC) $(CFLAGS) -o server $(SRC_DIR)/fsync_server.c $(SOURCES)
+server: $(SRC_DIR)/server.c $(SOURCES)
+	$(CC) $(CFLAGS) -o server $(SRC_DIR)/server.c $(SOURCES)
 
 clean:
 	rm -rf $(BIN_DIR)/*.o $(SRC_DIR)/*~ $(INC_DIR)/*~ *~ client server

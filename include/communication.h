@@ -12,8 +12,10 @@
 #include <string.h>
 #include <errno.h>
 
+#define PORT 4000
+
 /** Tamanho do datagrama */
-#define DGRAM_SIZE 1024
+#define PACKET_SIZE 1024
 
 /** Tipos de pacotes */
 #define ERR     0xFF
@@ -30,7 +32,7 @@ typedef struct PacketHeader{
     uint16_t length;        // Comprimento do payload
 } PACKET_HEADER;
 
-#define DATA_LENGTH (DGRAM_SIZE - sizeof(PACKET_HEADER))
+#define DATA_LENGTH (PACKET_SIZE - sizeof(PACKET_HEADER))
 
 typedef struct PacketData{
     char data[DATA_LENGTH];   // Espaço restante do datagrama é preenchido com dados
@@ -59,8 +61,12 @@ int bind_udp_socket(int socket, char *ip, unsigned int port);
  *          -1 (Error)
  *          -2 (Time out)
  **/ 
-int send_message(int socket, REMOTE_ADDR addr, char *buffer, int length);
+int send_packet(int socket, REMOTE_ADDR addr, PACKET packet);
 
+/** Envia um pacote de ACK */
+int ack(int socket, const struct sockaddr *cli_addr, socklen_t clilen);
+
+/** Inicia a comunicação de um cliente com o servidor */
 int hello(int socket, REMOTE_ADDR server, char *username);
 
 #endif

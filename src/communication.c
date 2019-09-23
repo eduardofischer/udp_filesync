@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "../include/socket.h"
+#include "../include/communication.h"
 
 /* Inicializa um socket UDP*/
 int create_udp_socket(){
@@ -32,7 +32,7 @@ int bind_udp_socket(int socket, char *ip, unsigned int port){
 }
 
 /* Envia uma mensagem */
-int send_message(int socket, REMOTE_ADDR addr, char *buffer, int length){
+int send_packet(int socket, REMOTE_ADDR addr, PACKET packet){
     struct sockaddr_in dest_addr;
     struct hostent *server;
     int n;
@@ -48,11 +48,12 @@ int send_message(int socket, REMOTE_ADDR addr, char *buffer, int length){
 	dest_addr.sin_addr = *((struct in_addr *)server->h_addr);
 	bzero(&(dest_addr.sin_zero), 8);  
 
-	n = sendto(socket, buffer, length, 0, (const struct sockaddr *) &dest_addr, sizeof(struct sockaddr_in));
+	n = sendto(socket, &packet, PACKET_SIZE, 0, (const struct sockaddr *) &dest_addr, sizeof(struct sockaddr_in));
 	if (n < 0) 
 		printf("ERROR sendto %d\n", errno);
 	
 	n = recvfrom(socket, &response, sizeof(PACKET), 0, NULL, 0);
+    
 	if (n < 0 || response.header.type != ACK){
 		printf("ERROR recvfrom %d\n", errno);
         return -1;
@@ -61,10 +62,16 @@ int send_message(int socket, REMOTE_ADDR addr, char *buffer, int length){
     return 0;
 }
 
-/** Envia mensagem inicial enviada quando um cliente se conecta ao servidor */
-int hello(int socket, REMOTE_ADDR server, char *username){
+/** Envia um pacote de ACK */
+int ack(int socket, const struct sockaddr *cli_addr, socklen_t clilen){
     PACKET packet;
+    int n;
+    packet.header.type = ACK;
 
-    packet.header.type = HELLO;
-    strcpy(&(packet.data), &username);    
+    n = sendto(socket, &packet, sizeof(PACKET), 0, (const struct sockaddr *) cli_addr, clilen);
+    if(n<0){
+        printf("Error sendto %d/n", errno);
+    }
+
+    return n;
 }

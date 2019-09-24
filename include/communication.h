@@ -12,9 +12,6 @@
 #include <string.h>
 #include <errno.h>
 
-/**Globais*/
-REMOTE_ADDR sessionAddress;
-
 #define PORT 4000
 
 /**Erros */
@@ -59,6 +56,9 @@ typedef struct RemoteAddr{
     char *ip;
     uint16_t port;
 } REMOTE_ADDR;
+
+/**Globais*/
+REMOTE_ADDR sessionAddress;
 
 /** Inicializa um socket UDP */
 int create_udp_socket();

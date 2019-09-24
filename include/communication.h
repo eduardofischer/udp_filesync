@@ -12,7 +12,18 @@
 #include <string.h>
 #include <errno.h>
 
+/**Globais*/
+REMOTE_ADDR sessionAddress;
+
 #define PORT 4000
+
+/**Erros */
+#define ERR_SOCKET -1
+#define ERR_ACK -2
+#define ERR_OPEN_FILE -3
+
+/** Códigos de Retorno */
+#define SUCCESS 0
 
 /** Tamanho do datagrama */
 #define PACKET_SIZE 1024

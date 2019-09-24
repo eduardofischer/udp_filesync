@@ -1,6 +1,8 @@
 #ifndef __filesync_client__
 #define __filesync_client__
 
+#include "communication.h"
+
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath);
 

@@ -56,10 +56,10 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet){
     
 	if (n < 0 || response.header.type != ACK){
 		printf("ERROR recvfrom %d\n", errno);
-        return -1;
+        return ERR_ACK;
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 /** Envia um pacote de ACK */

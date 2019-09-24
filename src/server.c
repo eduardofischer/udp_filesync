@@ -5,8 +5,8 @@
 
 int main(int argc, char const *argv[]){
 	int listen_socket, n;
-	socklen_t clilen;
 	struct sockaddr_in cli_addr;
+	socklen_t clilen = sizeof(cli_addr);;
 	PACKET msg;
 
     listen_socket = create_udp_socket();

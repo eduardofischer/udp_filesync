@@ -33,7 +33,8 @@ int bind_udp_socket(int socket, char *ip, unsigned int port){
 
 /* Envia uma mensagem */
 int send_packet(int socket, REMOTE_ADDR addr, PACKET packet){
-    struct sockaddr_in dest_addr;
+    struct sockaddr_in dest_addr, new_addr;
+    socklen_t addr_len = sizeof(new_addr);
     struct hostent *server;
     int n;
     PACKET response;
@@ -48,18 +49,18 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet){
 	dest_addr.sin_addr = *((struct in_addr *)server->h_addr);
 	bzero(&(dest_addr.sin_zero), 8);  
 
-	n = sendto(socket, &packet, PACKET_SIZE, 0, (const struct sockaddr *) &dest_addr, sizeof(struct sockaddr_in));
+	n = sendto(socket, &packet, PACKET_SIZE, 0, (struct sockaddr *) &dest_addr, sizeof(struct sockaddr_in));
 	if (n < 0) 
 		printf("ERROR sendto %d\n", errno);
 	
-	n = recvfrom(socket, &response, sizeof(PACKET), 0, NULL, 0);
+	n = recvfrom(socket, &response, sizeof(PACKET), 0, (struct sockaddr *) &new_addr, &addr_len);
     
 	if (n < 0 || response.header.type != ACK){
 		printf("ERROR recvfrom %d\n", errno);
         return ERR_ACK;
     }
 
-    return SUCCESS;
+    return ntohs(new_addr.sin_port);
 }
 
 /** Envia um pacote de ACK */
@@ -68,10 +69,27 @@ int ack(int socket, const struct sockaddr *cli_addr, socklen_t clilen){
     int n;
     packet.header.type = ACK;
 
-    n = sendto(socket, &packet, sizeof(PACKET), 0, (const struct sockaddr *) cli_addr, clilen);
+    n = sendto(socket, &packet, sizeof(PACKET), 0, (struct sockaddr *) cli_addr, clilen);
     if(n<0){
-        printf("Error sendto %d/n", errno);
+        printf("Error sendto ack %d/n", errno);
     }
 
     return n;
+}
+
+int hello(int socket, REMOTE_ADDR addr, char *username){
+    PACKET packet;
+    int new_port;
+ 
+    packet.header.type = HELLO;
+    strcpy((char *) &(packet.data), username);
+
+    new_port = send_packet(socket, addr, packet);
+
+    if(new_port < 0){
+        fprintf(stderr,"ERROR! Login failed\n");
+        exit(0);
+    }
+
+    return new_port;
 }

@@ -117,16 +117,18 @@ int fileSizeInPackets(int fileSize){
 
 int main(int argc, char const *argv[]){
     int socket, res;
-    char buffer[256];
     REMOTE_ADDR server;
+    char username[64];
     PACKET msg;
 
-    if(argc < 2){
+    if(argc < 3){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");
+        fprintf(stderr, "Command should be in the form: client <username> <server_ip_address>\n");
         exit(0);
     }
 
-    server.ip = (char *)argv[1];
+    strcpy((char *) username, argv[1]);
+    server.ip = (char *)argv[2];
     server.port = PORT;
 
     if((socket = create_udp_socket()) < 0){
@@ -134,15 +136,16 @@ int main(int argc, char const *argv[]){
         exit(0);
     }
 
-	bzero(buffer, 256);
+    // Conecta com o servidor e atualiza a porta
+    server.port = hello(socket, server, username);
+
+    printf("Client connected to %s:%d\n\n", server.ip, server.port);
+
+    // Enviando mensagem de teste
 	strcpy((char *) &(msg.data), "Teste do socket UDP");
-
     res = send_packet(socket, server, msg);
-
-    if(res == 0)
-        printf("ACK Recebido!\n");
-    else 
-        printf("Erro! n=%d\n", res);
-    
+    if(res < 0)
+        printf("Erro! n=%d\n", res); 
+         
     return 0;
 }

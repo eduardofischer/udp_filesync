@@ -57,16 +57,20 @@ int bind_udp_socket(int socket, char *ip, unsigned int port);
 
 /** 
  *  Envia uma mensagem e espera o ACK do destino
- *  Return:  0 (Ok!)
- *          -1 (Error)
- *          -2 (Time out)
+ *  Retorno: Porta do servidor
+ *           -1 (Error)
+ *           -2 (Time out)
  **/ 
 int send_packet(int socket, REMOTE_ADDR addr, PACKET packet);
 
 /** Envia um pacote de ACK */
 int ack(int socket, const struct sockaddr *cli_addr, socklen_t clilen);
 
-/** Inicia a comunicação de um cliente com o servidor */
-int hello(int socket, REMOTE_ADDR server, char *username);
+/** 
+ *  Inicia a comunicação de um cliente com o servidor 
+ *  Retorna a porta com a qual o cliente deve se comunicar
+ *  ou -1 em caso de erro
+*/
+int hello(int socket, REMOTE_ADDR addr, char *username);
 
 #endif

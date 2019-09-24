@@ -99,7 +99,7 @@ int sendCommand(int socket, char* command){
     memcpy(toSend.data.data, command, sizeof(char) * toSend.header.length);
     
     //Envia o pacote
-    return send_packet(socket,sessionAddress,toSend);
+    return send_packet(socket, sessionAddress, toSend);
 }
 
 void initDataPacketHeader(PACKET *toInit,uint32_t total_size){
@@ -134,6 +134,7 @@ int main(int argc, char const *argv[]){
     int socket, res;
     REMOTE_ADDR server;
     char username[64];
+    struct hostent *client_host;
     PACKET msg;
 
     if(argc < 3){
@@ -142,8 +143,13 @@ int main(int argc, char const *argv[]){
         exit(0);
     }
 
+    if ((client_host = gethostbyname((char *)argv[2])) == NULL){
+        fprintf(stderr, "ERROR! No such host\n");
+        exit(0);
+    }
+
     strcpy((char *) username, argv[1]);
-    server.ip = (char *)argv[2];
+    server.ip = *(unsigned long *) client_host->h_addr;
     server.port = PORT;
 
     if((socket = create_udp_socket()) < 0){
@@ -154,7 +160,7 @@ int main(int argc, char const *argv[]){
     // Conecta com o servidor e atualiza a porta
     server.port = hello(socket, server, username);
 
-    printf("Client connected to %s:%d\n\n", server.ip, server.port);
+    printf("Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
 
     // Enviando mensagem de teste
 	strcpy((char *) &(msg.data), "Teste do socket UDP");

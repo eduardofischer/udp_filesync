@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h> 
 
 #define PORT 4000
 
@@ -53,7 +54,7 @@ typedef struct Packet{
 
 /** Estrutura com as informações do servidor */
 typedef struct RemoteAddr{
-    char *ip;
+    unsigned long ip; // load with inet_aton()
     uint16_t port;
 } REMOTE_ADDR;
 
@@ -75,7 +76,7 @@ int bind_udp_socket(int socket, char *ip, unsigned int port);
 int send_packet(int socket, REMOTE_ADDR addr, PACKET packet);
 
 /** Envia um pacote de ACK */
-int ack(int socket, const struct sockaddr *cli_addr, socklen_t clilen);
+int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);
 
 /** 
  *  Inicia a comunicação de um cliente com o servidor 
@@ -83,5 +84,15 @@ int ack(int socket, const struct sockaddr *cli_addr, socklen_t clilen);
  *  ou -1 em caso de erro
 */
 int hello(int socket, REMOTE_ADDR addr, char *username);
+
+/** 
+ * Escuta um cliente em um determinado socket 
+ * */
+void *listen_to_client(void *client);
+
+/** 
+ *  Cria um novo socket em uma nova thread
+ */
+int new_socket(REMOTE_ADDR *client);
 
 #endif

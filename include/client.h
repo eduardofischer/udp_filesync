@@ -1,6 +1,8 @@
 #ifndef __filesync_client__
 #define __filesync_client__
 
+#include "communication.h"
+
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath);
 
@@ -21,5 +23,15 @@ int getSyncDir();
 
 /** Fecha a sessão com o servidor **/
 int exitClient();
+
+int sendCommand(int socket, char* command);
+
+void initDataPacketHeader(PACKET *toInit,uint32_t total_size, u_int16_t length);
+
+int fileSize(FILE *toBeMeasured);
+
+int isOpened(FILE *sourceFile);
+
+int fileSizeInPackets(int fileSize);
 
 #endif

@@ -23,7 +23,7 @@ int uploadFile(char* filePath){
 
     if (socketDataTransfer != ERR_SOCKET){
         response = sendCommand(socketDataTransfer,command);
-        if(response == SUCCESS){
+        if(response >= 0){
              sourceFile = fopen(filePath,"rb");
              if(isOpened(sourceFile)){
                 int sourceFileSize = fileSize(sourceFile); 

@@ -4,10 +4,11 @@
 #include "../include/communication.h"
 
 int main(int argc, char const *argv[]){
-	int listen_socket, n;
+	int listen_socket, new_sock, n;
 	struct sockaddr_in cli_addr;
-	socklen_t clilen = sizeof(cli_addr);;
+	socklen_t clilen = sizeof(cli_addr);
 	PACKET msg;
+	REMOTE_ADDR client;
 
     listen_socket = create_udp_socket();
     listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, PORT);
@@ -19,13 +20,22 @@ int main(int argc, char const *argv[]){
     clilen = sizeof(struct sockaddr_in);
 
     while (1) {
-		/* receive from socket */
 		n = recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
+		
 		if (n < 0) 
 			printf("ERROR on recvfrom");
-		printf("- Received a datagram: %s\n", (char *) &(msg.data));
-		
-		ack(listen_socket, (struct sockaddr *) &cli_addr, clilen);
+
+		client.ip = cli_addr.sin_addr.s_addr;
+		client.port = ntohs(cli_addr.sin_port);
+
+		new_sock = new_socket(&client);
+
+		if(new_sock < 0){
+			printf("ERROR creating socket\n");
+			exit(0);
+		}
+
+		printf("%s:%d connected as %s\n", inet_ntoa(*(struct in_addr *) &client.ip), client.port,(char *) &(msg.data));
 	}
 
     return 0;

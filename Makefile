@@ -2,7 +2,7 @@ CC=gcc
 INC_DIR=./include
 BIN_DIR=./bin
 SRC_DIR=./src
-CFLAGS=-Wall
+CFLAGS=-Wall -pthread
 
 SOURCES=$(SRC_DIR)/communication.c
 

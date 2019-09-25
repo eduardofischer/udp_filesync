@@ -33,6 +33,21 @@
 #define DATA    0x02
 #define CMD     0x03
 
+/** Codigos dos comandos **/
+#define UPLOAD   0x04
+#define DOWNLOAD 0x05
+#define DELETE   0x06
+#define LST_SV   0x07
+#define LST_CLI  0x08
+#define SYNC_DIR 0x09
+#define EXIT     0x10
+
+/** Estrutura do comando **/
+typedef struct command{
+    char code;
+    char *arguments;
+} COMMAND;
+
 /** Estrutura do datagrama UDP */
 typedef struct PacketHeader{
     char type;              // Tipo do pacote

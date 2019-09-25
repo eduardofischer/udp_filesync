@@ -14,7 +14,6 @@ int uploadFile(char* filePath){
     int response;
     char command[COMMAND_SIZE] = "upload";
     FILE *sourceFile;
-    int bytesRead;
     int i;
     PACKET dataToTransfer;
     char buffer[DATA_LENGTH];
@@ -24,16 +23,29 @@ int uploadFile(char* filePath){
 
     if (socketDataTransfer != ERR_SOCKET){
         response = sendCommand(socketDataTransfer,command);
-        if(response == SUCCESS){
+        if(response >= 0){
              sourceFile = fopen(filePath,"rb");
              if(isOpened(sourceFile)){
                 int sourceFileSize = fileSize(sourceFile); 
+                int sourceFileSizeRemaining = sourceFileSize;
+                int currentPacketLenght;
+                initDataPacketHeader(&dataToTransfer,(u_int32_t)fileSizeInPackets(sourceFileSize));
                 
                 for(i = 0; i < fileSizeInPackets(sourceFileSize); i++){
+                    //Preenchimento do pacote: dados e cabeçalho
+                    currentPacketLenght = (sourceFileSizeRemaining / DATA_LENGTH) >= 1? DATA_LENGTH : sourceFileSizeRemaining % DATA_LENGTH;
                     fread(buffer,sizeof(char),DATA_LENGTH,sourceFile);
-
-
+                    memcpy(dataToTransfer.data.data,buffer,currentPacketLenght);
+                    dataToTransfer.header.seqn = i;
+                    dataToTransfer.header.length = currentPacketLenght;
+                    
+                    //Enquanto o servidor não recebeu o pacote, tenta re-enviar pra ele
+                    while(send_packet(socketDataTransfer,sessionAddress,dataToTransfer) < 0);
+                    
+                    //Tamanho restante a ser transmitido
+                    sourceFileSizeRemaining -= currentPacketLenght;
                 }
+                return SUCCESS;
              }
              return ERR_OPEN_FILE;
         } 
@@ -43,9 +55,7 @@ int uploadFile(char* filePath){
         }
     }
 
-    return ERR_SOCKET;
-
-    
+    return ERR_SOCKET; 
 };
 
 /** Faz o download de um arquivo do servidor **/
@@ -92,16 +102,20 @@ int sendCommand(int socket, char* command){
     return send_packet(socket, sessionAddress, toSend);
 }
 
-void initDataPacketHeader(PACKET *toInit,uint32_t total_size, u_int16_t length){
+void initDataPacketHeader(PACKET *toInit,uint32_t total_size){
     toInit->header.type = DATA;
     toInit->header.seqn = 0;
+    toInit->header.total_size = total_size;
 }
 
 int fileSize(FILE *toBeMeasured){
     int size;
     
+    //Ao infinito e além para medir o tamanho do arquivo.
     fseek(toBeMeasured, 0L, SEEK_END);
     size = ftell(toBeMeasured);
+    //Retorna ao inicio depois da longa viagem.
+    rewind(toBeMeasured);
     return size;
 }
 
@@ -111,6 +125,7 @@ int isOpened(FILE *sourceFile){
 
 int fileSizeInPackets(int fileSize){
     int totalPackets;
+    //O tamanho do arquivo em pacotes é acrescido de um pacote caso haja resto.
     totalPackets = fileSize % DATA_LENGTH? (fileSize / DATA_LENGTH) : (fileSize / DATA_LENGTH + 1);
     return totalPackets;
 }

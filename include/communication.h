@@ -47,19 +47,16 @@ typedef struct PacketData{
     char data[DATA_LENGTH];   // Espaço restante do datagrama é preenchido com dados
 } PACKET_DATA;
 
-typedef struct Packet{
-    PACKET_HEADER header;
-    PACKET_DATA data;
-} PACKET;
-
 /** Estrutura com as informações do servidor */
 typedef struct RemoteAddr{
     unsigned long ip; // load with inet_aton()
     uint16_t port;
 } REMOTE_ADDR;
 
-/**Globais*/
-REMOTE_ADDR sessionAddress;
+typedef struct Packet{
+    PACKET_HEADER header;
+    PACKET_DATA data;
+} PACKET;
 
 /** Inicializa um socket UDP */
 int create_udp_socket();

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "../include/server.h"
 #include "../include/communication.h"
+#include "../include/filesystem.h"
 
 int main(int argc, char const *argv[]){
 	int listen_socket, new_sock, n;
@@ -35,7 +36,10 @@ int main(int argc, char const *argv[]){
 			exit(0);
 		}
 
-		printf("%s:%d connected as %s\n", inet_ntoa(*(struct in_addr *) &client.ip), client.port,(char *) &(msg.data));
+		if (create_user_dir((char *) &(msg.data)) < 0) 
+			exit(0);
+		
+		printf("📡 %s:%d connected as %s\n", inet_ntoa(*(struct in_addr *) &client.ip), client.port,(char *) &(msg.data));	
 	}
 
     return 0;

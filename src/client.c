@@ -5,8 +5,11 @@
 #include <unistd.h>
 #include "../include/client.h"
 #include "../include/communication.h"
+#include "../include/filesystem.h"
 
 #define COMMAND_SIZE 25 //TO-DO:Determinar o número correto
+
+REMOTE_ADDR sessionAddress;
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath){
@@ -147,6 +150,9 @@ int main(int argc, char const *argv[]){
         fprintf(stderr, "ERROR! No such host\n");
         exit(0);
     }
+    
+	if (create_local_dir() < 0) 
+		exit(0);
 
     strcpy((char *) username, argv[1]);
     server.ip = *(unsigned long *) client_host->h_addr;
@@ -160,7 +166,7 @@ int main(int argc, char const *argv[]){
     // Conecta com o servidor e atualiza a porta
     server.port = hello(socket, server, username);
 
-    printf("Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
+    printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
 
     // Enviando mensagem de teste
 	strcpy((char *) &(msg.data), "Teste do socket UDP");

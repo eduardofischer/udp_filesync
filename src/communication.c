@@ -128,7 +128,7 @@ void *listen_to_client(void *client){
 		if (n < 0) 
 			printf("ERROR on recvfrom");
 
-		printf("    %s:%d > %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port,(char *) &(msg.data));
+		printf("✉ %s:%d > %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port,(char *) &(msg.data));
 		
 		ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
     }

@@ -6,7 +6,7 @@
 #include "../include/client.h"
 #include "../include/communication.h"
 
-#define COMMAND_SIZE 25 //TO-DO:Determinar o número correto
+#define COMMAND_SIZE 50 //TO-DO:Determinar o número correto
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath){
@@ -152,6 +152,53 @@ int main(int argc, char const *argv[]){
     res = send_packet(socket, server, msg);
     if(res < 0)
         printf("Erro! n=%d\n", res); 
-         
+
+    //CLI
+    printf("Available commands:\n\n\tupload <path/filename.ext>\n\tdownload <filename.ext>\n\tdelete <filename.ext>\n\tlist_server\n\tlist_client\n\tget_sync_dir\n\texit\n\n");
+
+    char user_input[COMMAND_SIZE];
+    char *user_cmd;
+    char *user_arg;
+
+    int session_alive = 1;
+    do{
+        printf("udp_filesync > ");
+        fgets(user_input, COMMAND_SIZE, stdin);
+
+        user_cmd = strtok(user_input, " ");
+        user_arg = strtok(NULL, " ");
+
+        if (!strcmp(user_cmd,"upload")) {
+            if (uploadFile(user_arg) == -1){
+                printf("Error uploading file.\n");
+            }
+        }else if(!strcmp(user_cmd, "download")) {
+           if (downloadFile(user_arg) == -1){
+                printf("Error downloading file.\n");
+            }
+        }else if(!strcmp(user_cmd, "delete")) {
+            if (deleteFile(user_arg) == -1){
+                printf("Error deleting file.\n");
+            }
+        }else if(!strcmp(user_cmd, "list_server\n")){
+            if (listServer() == -1){
+                printf("Error listing server files.\n");
+            }
+        }else if(!strcmp(user_cmd, "list_client\n")){
+            if (listClient() == -1){
+                printf("Error listing client files.\n");
+            }
+        }else if(!strcmp(user_cmd, "get_sync_dir\n")){
+            if (getSyncDir() == -1){
+                printf("Error getting sync directory.\n");
+            }
+        }else if(!strcmp(user_input, "exit\n")){
+            if (exitClient() == -1){
+                printf("Error exiting client.\n");
+            }else{
+                session_alive = 0;
+            }
+        }
+    } while(session_alive);
     return 0;
 }

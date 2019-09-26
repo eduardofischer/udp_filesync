@@ -133,48 +133,7 @@ int fileSizeInPackets(int fileSize){
     return totalPackets;
 }
 
-int main(int argc, char const *argv[]){
-    int socket, res;
-    REMOTE_ADDR server;
-    char username[64];
-    struct hostent *client_host;
-    PACKET msg;
-
-    if(argc < 3){
-        fprintf(stderr, "ERROR! Invalid number of arguments.\n");
-        fprintf(stderr, "Command should be in the form: client <username> <server_ip_address>\n");
-        exit(0);
-    }
-
-    if ((client_host = gethostbyname((char *)argv[2])) == NULL){
-        fprintf(stderr, "ERROR! No such host\n");
-        exit(0);
-    }
-    
-	if (create_local_dir() < 0) 
-		exit(0);
-
-    strcpy((char *) username, argv[1]);
-    server.ip = *(unsigned long *) client_host->h_addr;
-    server.port = PORT;
-
-    if((socket = create_udp_socket()) < 0){
-        fprintf(stderr,"ERROR opening socket\n");
-        exit(0);
-    }
-
-    // Conecta com o servidor e atualiza a porta
-    server.port = hello(socket, server, username);
-
-    printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
-
-    // Enviando mensagem de teste
-	strcpy((char *) &(msg.data), "Teste do socket UDP");
-    res = send_packet(socket, server, msg);
-    if(res < 0)
-        printf("Erro! n=%d\n", res); 
-
-    //CLI
+void run_cli(){
     printf("Available commands:\n\n\tupload <path/filename.ext>\n\tdownload <filename.ext>\n\tdelete <filename.ext>\n\tlist_server\n\tlist_client\n\tget_sync_dir\n\texit\n\n");
 
     char user_input[COMMAND_SIZE];
@@ -221,5 +180,43 @@ int main(int argc, char const *argv[]){
             }
         }
     } while(session_alive);
+}
+
+int main(int argc, char const *argv[]){
+    int socket;
+    REMOTE_ADDR server;
+    char username[64];
+    struct hostent *client_host;
+
+    if(argc < 3){
+        fprintf(stderr, "ERROR! Invalid number of arguments.\n");
+        fprintf(stderr, "Command should be in the form: client <username> <server_ip_address>\n");
+        exit(0);
+    }
+
+    if ((client_host = gethostbyname((char *)argv[2])) == NULL){
+        fprintf(stderr, "ERROR! No such host\n");
+        exit(0);
+    }
+    
+	if (create_local_dir() < 0) 
+		exit(0);
+
+    strcpy((char *) username, argv[1]);
+    server.ip = *(unsigned long *) client_host->h_addr;
+    server.port = PORT;
+
+    if((socket = create_udp_socket()) < 0){
+        fprintf(stderr,"ERROR opening socket\n");
+        exit(0);
+    }
+
+    // Conecta com o servidor e atualiza a porta
+    server.port = hello(socket, server, username);
+
+    printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
+
+    run_cli();
+    
     return 0;
 }

@@ -39,4 +39,7 @@ int isOpened(FILE *sourceFile);
 /**Determina o tamanho do arquivo em pacotes. **/
 int fileSizeInPackets(int fileSize);
 
+/** Exibe uma interface para entrada de comandos para o usuário */
+void run_cli();
+
 #endif

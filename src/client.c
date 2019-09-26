@@ -134,7 +134,8 @@ int fileSizeInPackets(int fileSize){
 }
 
 void run_cli(){
-    printf("Available commands:\n\n\tupload <path/filename.ext>\n\tdownload <filename.ext>\n\tdelete <filename.ext>\n\tlist_server\n\tlist_client\n\tget_sync_dir\n\texit\n\n");
+    //CLI
+    printf("Available commands:\n\n\t📤  upload <path/filename.ext>\n\t📥  download <filename.ext>\n\t❌  delete <filename.ext>\n\t📃  list_server\n\t📃  list_client\n\t📁  get_sync_dir\n\t🏃  exit\n\n");
 
     char user_input[COMMAND_SIZE];
     char *user_cmd;
@@ -178,6 +179,9 @@ void run_cli(){
             }else{
                 session_alive = 0;
             }
+        }else{
+            printf("\nInvalid input!\n");
+            printf("Available commands:\n\n\t📤  upload <path/filename.ext>\n\t📥  download <filename.ext>\n\t❌  delete <filename.ext>\n\t📃  list_server\n\t📃  list_client\n\t📁  get_sync_dir\n\t🏃  exit\n\n");
         }
     } while(session_alive);
 }

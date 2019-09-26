@@ -42,12 +42,6 @@
 #define SYNC_DIR 0x09
 #define EXIT     0x10
 
-/** Estrutura do comando **/
-typedef struct command{
-    char code;
-    char *arguments;
-} COMMAND;
-
 /** Estrutura do datagrama UDP */
 typedef struct PacketHeader{
     char type;              // Tipo do pacote
@@ -73,6 +67,12 @@ typedef struct Packet{
     PACKET_DATA data;
 } PACKET;
 
+/** Estrutura do comando **/
+typedef struct command{
+    char code;
+    char argument[DATA_LENGTH - 1];
+} COMMAND;
+
 /** Inicializa um socket UDP */
 int create_udp_socket();
 
@@ -91,6 +91,11 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet);
 int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);
 
 /** 
+ *  Envia um pacote de ERR
+ * */
+int err(int socket, struct sockaddr *cli_addr, socklen_t clilen, char *err_msg);
+
+/** 
  *  Inicia a comunicação de um cliente com o servidor 
  *  Retorna a porta com a qual o cliente deve se comunicar
  *  ou -1 em caso de erro
@@ -98,13 +103,13 @@ int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);
 int hello(int socket, REMOTE_ADDR addr, char *username);
 
 /** 
- * Escuta um cliente em um determinado socket 
+ *  Envia um comando genérico ao servidor e aguarda pelo ack do mesmo 
  * */
-void *listen_to_client(void *client);
+int send_command(int socket, REMOTE_ADDR server, char command, char* arg);
 
-/** 
- *  Cria um novo socket em uma nova thread
- */
-int new_socket(REMOTE_ADDR *client);
+/**
+ *  Inicializa o pacote de dados a ser enviado para o servidor. 
+ * **/
+void init_data_packet_header(PACKET *toInit,uint32_t total_size);
 
 #endif

@@ -6,33 +6,29 @@
 #include "../include/client.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
-
-#define COMMAND_SIZE 50 //TO-DO:Determinar o número correto
-
-REMOTE_ADDR sessionAddress;
+    
+int socketfd;
+REMOTE_ADDR server;
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath){
     int socketDataTransfer;
-    int response;
-    char command[COMMAND_SIZE] = "upload";
+    int response, i;
     FILE *sourceFile;
-    int i;
     PACKET dataToTransfer;
     char buffer[DATA_LENGTH];
-
 
     socketDataTransfer = create_udp_socket();
 
     if (socketDataTransfer != ERR_SOCKET){
-        response = sendCommand(socketDataTransfer,command);
+        response = send_command(socketDataTransfer, server, UPLOAD, NULL);
         if(response >= 0){
              sourceFile = fopen(filePath,"rb");
              if(isOpened(sourceFile)){
                 int sourceFileSize = fileSize(sourceFile); 
                 int sourceFileSizeRemaining = sourceFileSize;
                 int currentPacketLenght;
-                initDataPacketHeader(&dataToTransfer,(u_int32_t)fileSizeInPackets(sourceFileSize));
+                init_data_packet_header(&dataToTransfer,(u_int32_t)fileSizeInPackets(sourceFileSize));
                 
                 for(i = 0; i < fileSizeInPackets(sourceFileSize); i++){
                     //Preenchimento do pacote: dados e cabeçalho
@@ -43,7 +39,7 @@ int uploadFile(char* filePath){
                     dataToTransfer.header.length = currentPacketLenght;
                     
                     //Enquanto o servidor não recebeu o pacote, tenta re-enviar pra ele
-                    while(send_packet(socketDataTransfer,sessionAddress,dataToTransfer) < 0);
+                    while(send_packet(socketDataTransfer,server,dataToTransfer) < 0);
                     
                     //Tamanho restante a ser transmitido
                     sourceFileSizeRemaining -= currentPacketLenght;
@@ -87,29 +83,9 @@ int getSyncDir(){
 };
 
 /** Fecha a sessão com o servidor **/
-int exitClient(){
-    return -1;
+int exit_client(){
+    return send_command(socketfd, server, EXIT, NULL);
 };
-
-/**Envia um comando genérico ao servidor e aguarda pelo ack do mesmo*/
-int sendCommand(int socket, char* command){
-    PACKET toSend;
-    //Prepara o pacote de comando
-    toSend.header.type = CMD;
-    toSend.header.seqn = 0;
-    toSend.header.length = strlen(command);  
-    toSend.header.total_size = 1;
-    memcpy(toSend.data.data, command, sizeof(char) * toSend.header.length);
-    
-    //Envia o pacote
-    return send_packet(socket, sessionAddress, toSend);
-}
-
-void initDataPacketHeader(PACKET *toInit,uint32_t total_size){
-    toInit->header.type = DATA;
-    toInit->header.seqn = 0;
-    toInit->header.total_size = total_size;
-}
 
 int fileSize(FILE *toBeMeasured){
     int size;
@@ -133,9 +109,19 @@ int fileSizeInPackets(int fileSize){
     return totalPackets;
 }
 
+void print_cli_options(){
+    printf("Available commands:\n\n");
+    printf("\t📤  upload <path/filename.ext>\n");
+    printf("\t📥  download <filename.ext>\n");
+    printf("\t❌  delete <filename.ext>\n");
+    printf("\t📃  list_server\n");
+    printf("\t📃  list_client\n");
+    printf("\t📁  get_sync_dir\n");
+    printf("\t🏃  exit\n\n");
+}
+
 void run_cli(){
-    //CLI
-    printf("Available commands:\n\n\t📤  upload <path/filename.ext>\n\t📥  download <filename.ext>\n\t❌  delete <filename.ext>\n\t📃  list_server\n\t📃  list_client\n\t📁  get_sync_dir\n\t🏃  exit\n\n");
+    print_cli_options();
 
     char user_input[COMMAND_SIZE];
     char *user_cmd;
@@ -174,21 +160,19 @@ void run_cli(){
                 printf("Error getting sync directory.\n");
             }
         }else if(!strcmp(user_input, "exit\n")){
-            if (exitClient() == -1){
+            if (exit_client() == -1){
                 printf("Error exiting client.\n");
             }else{
                 session_alive = 0;
             }
         }else{
             printf("\nInvalid input!\n");
-            printf("Available commands:\n\n\t📤  upload <path/filename.ext>\n\t📥  download <filename.ext>\n\t❌  delete <filename.ext>\n\t📃  list_server\n\t📃  list_client\n\t📁  get_sync_dir\n\t🏃  exit\n\n");
+            print_cli_options();
         }
     } while(session_alive);
 }
 
 int main(int argc, char const *argv[]){
-    int socket;
-    REMOTE_ADDR server;
     char username[64];
     struct hostent *client_host;
 
@@ -210,13 +194,13 @@ int main(int argc, char const *argv[]){
     server.ip = *(unsigned long *) client_host->h_addr;
     server.port = PORT;
 
-    if((socket = create_udp_socket()) < 0){
+    if((socketfd = create_udp_socket()) < 0){
         fprintf(stderr,"ERROR opening socket\n");
         exit(0);
     }
 
     // Conecta com o servidor e atualiza a porta
-    server.port = hello(socket, server, username);
+    server.port = hello(socketfd, server, username);
 
     printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
 

@@ -49,7 +49,7 @@ int uploadFile(char* filePath){
              return ERR_OPEN_FILE;
         } 
         else{
-            printf("Server didn't return ack (busy?)");
+            printf("Server didn't return ack (busy?)\n");
             return ERR_ACK;
         }
     }

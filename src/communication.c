@@ -131,9 +131,11 @@ int send_command(int socket, REMOTE_ADDR server, char command, char* arg){
     packet.header.length = sizeof(COMMAND);
 
     (*(COMMAND *) &(packet.data)).code = command;
-    if(arg != NULL)
+    if(arg != NULL){
         strcpy((*(COMMAND *) &(packet.data)).argument, arg);
-    
+    }else{
+        packet.data.data[0] = (char) '\0';
+    };
     //Envia o pacote
     return send_packet(socket, server, packet);
 }

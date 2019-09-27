@@ -3,6 +3,14 @@
 #include "../include/server.h"
 #include "../include/communication.h"
 
+#define MAX_PATH_LENGTH 255
+
+void upload(char *archive_name, char *archive_file){
+	FILE *toBeCreated;
+	char *full_archive_path = malloc(sizeof(char) * MAX_PATH_LENGTH);
+	toBeCreated = fopen(archive_name,"")
+}
+
 int main(int argc, char const *argv[]){
 	int listen_socket, new_sock, n;
 	struct sockaddr_in cli_addr;

@@ -1,4 +1,5 @@
 #include "../include/communication.h"
+#include "../include/server.h"
 
 /* Inicializa um socket UDP*/
 int create_udp_socket()
@@ -104,6 +105,7 @@ void *listen_to_client(void *client){
     REMOTE_ADDR addr = *(REMOTE_ADDR *) client;
     struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
+    COMMAND *command_received;
 
     new_socket = create_udp_socket();
 
@@ -129,8 +131,31 @@ void *listen_to_client(void *client){
 			printf("ERROR on recvfrom");
 
 		printf("    %s:%d > %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port,(char *) &(msg.data));
+        command_received = (COMMAND*) &msg.data;
+
+        switch(command_received->code){
+            case UPLOAD:    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+                            upload(command_received->arguments);
+                            break;
+            case DOWNLOAD:  ack(new_socket, (struct sockaddr *) &cli_addr, clilen); 
+                            break;
+            case DELETE:    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+                            break;
+            case LST_SV:    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+                            break;
+            case LST_CLI:   ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+                            break;
+            case SYNC_DIR:  ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+                            break;
+            
+            case EXIT:      ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+                            break;
+            
+            default: 
+                            break;
+        }
 		
-		ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+		
     }
 }
 

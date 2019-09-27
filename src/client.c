@@ -112,7 +112,7 @@ void run_cli(){
 
         user_cmd = strtok(user_input, " ");
         user_arg = strtok(NULL, " \n");
-
+        
         if (!strcmp(user_cmd,"upload")) {
             if (uploadFile(user_arg) == -1){
                 printf("Error uploading file.\n");
@@ -152,7 +152,7 @@ void run_cli(){
 
 int main(int argc, char const *argv[]){
     char username[64];
-    struct hostent *client_host;
+    struct hostent *host;
 
     if(argc < 3){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");
@@ -160,7 +160,7 @@ int main(int argc, char const *argv[]){
         exit(0);
     }
 
-    if ((client_host = gethostbyname((char *)argv[2])) == NULL){
+    if ((host = gethostbyname((char *)argv[2])) == NULL){
         fprintf(stderr, "ERROR! No such host\n");
         exit(0);
     }
@@ -169,7 +169,7 @@ int main(int argc, char const *argv[]){
 		exit(0);
 
     strcpy((char *) username, argv[1]);
-    server.ip = *(unsigned long *) client_host->h_addr;
+    server.ip = *(unsigned long *) host->h_addr;
     server.port = PORT;
 
     if((socketfd = create_udp_socket()) < 0){

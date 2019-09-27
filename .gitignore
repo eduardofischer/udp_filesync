@@ -1,4 +1,6 @@
 .vscode
+user_data/
+sync_dir/
 
 # Prerequisites
 *.d

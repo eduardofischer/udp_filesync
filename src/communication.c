@@ -1,7 +1,9 @@
 #include "../include/communication.h"
 #include "../include/server.h"
 
-/* Inicializa um socket UDP*/
+/**
+ *  Inicializa um socket UDP
+ * */
 int create_udp_socket()
 {
     int sockfd;
@@ -14,7 +16,9 @@ int create_udp_socket()
     return sockfd;
 }
 
-/* Vincula um socket com um IP e uma porta */
+/** 
+ *  Vincula um socket com um IP e uma porta
+ * */
 int bind_udp_socket(int socket, char *ip, unsigned int port)
 {
     struct sockaddr_in addr;
@@ -65,11 +69,27 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet){
     return ntohs(new_addr.sin_port);
 }
 
-/** Envia um pacote de ACK */
+/** 
+ *  Envia um pacote de ACK 
+ * */
 int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen){
     PACKET packet;
     int n;
     packet.header.type = ACK;
+
+    n = sendto(socket, &packet, sizeof(PACKET), 0, (struct sockaddr *)cli_addr, clilen);
+
+    return n;
+}
+
+/** 
+ *  Envia um pacote de ERR
+ * */
+int err(int socket, struct sockaddr *cli_addr, socklen_t clilen, char *err_msg){
+    PACKET packet;
+    int n;
+    packet.header.type = ERR;
+    strcpy((char *)&(packet.data), err_msg);
 
     n = sendto(socket, &packet, sizeof(PACKET), 0, (struct sockaddr *)cli_addr, clilen);
 
@@ -98,75 +118,34 @@ int hello(int socket, REMOTE_ADDR addr, char *username){
     return new_port;
 }
 
-/** Escuta um cliente em um determinado socket */
-void *listen_to_client(void *client){
-    int new_socket, n;
-    PACKET msg;
-    REMOTE_ADDR addr = *(REMOTE_ADDR *) client;
-    struct sockaddr_in cli_addr;
-	socklen_t clilen = sizeof(cli_addr);
-    COMMAND *command_received;
-
-    new_socket = create_udp_socket();
-
-    if(new_socket < 0){
-        printf("ERROR creating new socket\n");
-        exit(0);
-    }
-
-    cli_addr.sin_family = AF_INET;
-    cli_addr.sin_port = htons(addr.port);
-    cli_addr.sin_addr.s_addr = addr.ip;
-    bzero(&(cli_addr.sin_zero), 8);
-
-    n = ack(new_socket, (struct sockaddr *)&cli_addr, sizeof(struct sockaddr_in));
-    if (n < 0){
-        printf("Error ack %d/n", errno);
-    }
-
-    while(1){
-		n = recvfrom(new_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
-
-		if (n < 0) 
-			printf("ERROR on recvfrom");
-
-		printf("    %s:%d > %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port,(char *) &(msg.data));
-        command_received = (COMMAND*) &msg.data;
-
-        switch(command_received->code){
-            case UPLOAD:    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-                            upload(command_received->arguments);
-                            break;
-            case DOWNLOAD:  ack(new_socket, (struct sockaddr *) &cli_addr, clilen); 
-                            break;
-            case DELETE:    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-                            break;
-            case LST_SV:    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-                            break;
-            case LST_CLI:   ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-                            break;
-            case SYNC_DIR:  ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-                            break;
-            
-            case EXIT:      ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-                            break;
-            
-            default: 
-                            break;
-        }
-		
-		
-    }
-}
 
 /** 
- *  Cria um novo socket em uma nova thread
- *  Retorna a porta do novo socket ou -1 em caso de erro
- */
-int new_socket(REMOTE_ADDR *client){
-    pthread_t thr;       /* thread descriptor */
+ *  Envia um comando genérico ao servidor e aguarda pelo ack do mesmo 
+ * */
+int send_command(int socket, REMOTE_ADDR server, char command, char* arg){
+    PACKET packet;
 
-    pthread_create(&thr, NULL, listen_to_client, client); 
+    //Prepara o pacote de comando
+    packet.header.type = CMD;
+    packet.header.seqn = 0;
+    packet.header.total_size = 1;
+    packet.header.length = sizeof(COMMAND);
 
-    return 0;
+    (*(COMMAND *) &(packet.data)).code = command;
+    if(arg != NULL){
+        strcpy((*(COMMAND *) &(packet.data)).argument, arg);
+    }else{
+        packet.data.data[0] = (char) '\0';
+    };
+    //Envia o pacote
+    return send_packet(socket, server, packet);
+}
+
+/**
+ *  Inicializa o pacote de dados a ser enviado para o servidor. 
+ * **/
+void init_data_packet_header(PACKET *toInit, uint32_t total_size){
+    toInit->header.type = DATA;
+    toInit->header.seqn = 0;
+    toInit->header.total_size = total_size;
 }

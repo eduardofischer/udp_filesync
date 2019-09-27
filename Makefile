@@ -4,7 +4,7 @@ BIN_DIR=./bin
 SRC_DIR=./src
 CFLAGS=-Wall -pthread
 
-SOURCES=$(SRC_DIR)/communication.c
+SOURCES=$(SRC_DIR)/communication.c $(SRC_DIR)/filesystem.c
 
 all: client server
 		

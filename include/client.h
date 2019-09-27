@@ -3,6 +3,8 @@
 
 #include "communication.h"
 
+#define COMMAND_SIZE 256
+
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath);
 
@@ -22,21 +24,12 @@ int listClient();
 int getSyncDir();
 
 /** Fecha a sessão com o servidor **/
-int exitClient();
+int exit_client();
 
-/**Envia um pacote de comando para o servidor. TODO: Trocar por struct**/
-int sendCommand(int socket, char* command);
+/** Imprime as opções da CLI */
+void print_cli_options();
 
-/**Inicializa o pacote de dados a ser enviado para o servidor. **/
-void initDataPacketHeader(PACKET *toInit,uint32_t total_size);
-
-/**Retorna o tamanho do arquivo em bytes. **/
-int fileSize(FILE *toBeMeasured);
-
-/**Determina se o arquivo está aberto ou não. **/
-int isOpened(FILE *sourceFile);
-
-/**Determina o tamanho do arquivo em pacotes. **/
-int fileSizeInPackets(int fileSize);
+/** Exibe uma interface para entrada de comandos para o usuário */
+void run_cli();
 
 #endif

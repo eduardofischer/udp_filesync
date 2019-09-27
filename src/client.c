@@ -21,15 +21,15 @@ int uploadFile(char* filePath){
     socketDataTransfer = create_udp_socket();
 
     if (socketDataTransfer != ERR_SOCKET){
-        response = send_command(socketDataTransfer, server, UPLOAD, NULL);
+        response = send_command(socketDataTransfer, server, UPLOAD, filePath);
         if(response >= 0){
              sourceFile = fopen(filePath,"rb");
-             if(isOpened(sourceFile)){
+             if(isOpened(sourceFile)){       
                 int sourceFileSize = fileSize(sourceFile); 
                 int sourceFileSizeRemaining = sourceFileSize;
                 int currentPacketLenght;
                 init_data_packet_header(&dataToTransfer,(u_int32_t)fileSizeInPackets(sourceFileSize));
-                
+              
                 for(i = 0; i < fileSizeInPackets(sourceFileSize); i++){
                     //Preenchimento do pacote: dados e cabeçalho
                     currentPacketLenght = (sourceFileSizeRemaining / DATA_LENGTH) >= 1? DATA_LENGTH : sourceFileSizeRemaining % DATA_LENGTH;
@@ -37,7 +37,7 @@ int uploadFile(char* filePath){
                     memcpy(dataToTransfer.data.data,buffer,currentPacketLenght);
                     dataToTransfer.header.seqn = i;
                     dataToTransfer.header.length = currentPacketLenght;
-                    
+                            
                     //Enquanto o servidor não recebeu o pacote, tenta re-enviar pra ele
                     while(send_packet(socketDataTransfer,server,dataToTransfer) < 0);
                     
@@ -111,7 +111,7 @@ void run_cli(){
         fgets(user_input, COMMAND_SIZE, stdin);
 
         user_cmd = strtok(user_input, " ");
-        user_arg = strtok(NULL, " ");
+        user_arg = strtok(NULL, " \n");
 
         if (!strcmp(user_cmd,"upload")) {
             if (uploadFile(user_arg) == -1){

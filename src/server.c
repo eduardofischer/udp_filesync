@@ -4,6 +4,8 @@
 #include "../include/communication.h"
 #include "../include/filesystem.h"
 
+#define MAX_PATH_LENGTH 255
+
 /** 
  *  Escuta um cliente em um determinado socket 
  * */
@@ -14,7 +16,8 @@ void *listen_to_client(void *client){
     struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
     COMMAND *cmd;
-
+	// char storage_root[9] = "usr_data";   TO-DO: Informação do nome de usuário deve ser passada para a thread
+	// char storage_client[MAX_PATH_LENGTH];
     new_socket = create_udp_socket();
 
     if(new_socket < 0){
@@ -46,6 +49,7 @@ void *listen_to_client(void *client){
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
                         ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+						upload(msg.data.data,"user_data/mwc",new_socket);
                     }else{
                         err(new_socket, (struct sockaddr *) &cli_addr, clilen, "UPLOAD missing argument");      
                     }
@@ -117,8 +121,7 @@ int upload(char *archive_name, char *archive_file, int dataSocket){
 	strcat(full_archive_path,"/");
 	strcat(full_archive_path,archive_name);
 
-	toBeCreated = fopen(archive_name,"wb");
-
+	toBeCreated = fopen(full_archive_path,"wb");
 	if(isOpened(toBeCreated)){
 		do{
 			n = recvfrom(dataSocket,(void*) &received,PACKET_SIZE,0,(struct sockaddr *) &source_addr,&socket_addr_len);
@@ -149,6 +152,7 @@ int upload(char *archive_name, char *archive_file, int dataSocket){
 			}
 		}
 
+		fclose(toBeCreated);
 		return SUCCESS;
 		
 		

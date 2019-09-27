@@ -49,7 +49,7 @@ void *listen_to_client(void *client){
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
                         ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-						upload(msg.data.data,"user_data/mwc",new_socket);
+						upload(cmd->argument,"user_data/mwc",new_socket);
                     }else{
                         err(new_socket, (struct sockaddr *) &cli_addr, clilen, "UPLOAD missing argument");      
                     }

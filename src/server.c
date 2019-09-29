@@ -6,19 +6,26 @@
 
 #define MAX_PATH_LENGTH 255
 
+
+
 /** 
  *  Escuta um cliente em um determinado socket 
  * */
-void *listen_to_client(void *client){
+void *listen_to_client(void *client_info){
     int new_socket, n;
     PACKET msg;
-    REMOTE_ADDR addr = *(REMOTE_ADDR *) client;
+    REMOTE_ADDR addr = *(((CLIENT_INFO *) client_info)->client);
     struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
     COMMAND *cmd;
-	// char storage_root[9] = "usr_data";   TO-DO: Informação do nome de usuário deve ser passada para a thread
-	// char storage_client[MAX_PATH_LENGTH];
+	char storage_root[15] = "user_data/";   
+	char storage_client[MAX_PATH_LENGTH];
     new_socket = create_udp_socket();
+
+	//Seta o path para o armazenamento de dados do cliente que solicitou algo ao servidor
+	//Consiste de uma pasta raiz para todos os clientes, mais pastas para cada cliente.
+	strcpy(storage_client,storage_root);
+	strcat(storage_client,((CLIENT_INFO*)client_info)->username);
 
     if(new_socket < 0){
         printf("ERROR creating new socket\n");
@@ -49,7 +56,7 @@ void *listen_to_client(void *client){
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
                         ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-						upload(cmd->argument,"user_data/mwc",new_socket);
+						upload(cmd->argument,storage_client,new_socket);
                     }else{
                         err(new_socket, (struct sockaddr *) &cli_addr, clilen, "UPLOAD missing argument");      
                     }
@@ -96,7 +103,7 @@ void *listen_to_client(void *client){
  *  Cria um novo socket em uma nova thread
  *  Retorna a porta do novo socket ou -1 em caso de erro
  */
-int new_socket(REMOTE_ADDR *client){
+int new_socket(CLIENT_INFO *client){
     pthread_t thr;       /* thread descriptor */
 
     return pthread_create(&thr, NULL, listen_to_client, client);
@@ -120,8 +127,9 @@ int upload(char *archive_name, char *archive_file, int dataSocket){
 	strcpy(full_archive_path,archive_file);
 	strcat(full_archive_path,"/");
 	strcat(full_archive_path,archive_name);
-
+	printf("%s", full_archive_path);
 	toBeCreated = fopen(full_archive_path,"wb");
+	
 	if(isOpened(toBeCreated)){
 		do{
 			n = recvfrom(dataSocket,(void*) &received,PACKET_SIZE,0,(struct sockaddr *) &source_addr,&socket_addr_len);
@@ -170,6 +178,7 @@ int main(int argc, char const *argv[]){
 	socklen_t clilen = sizeof(cli_addr);
 	PACKET msg;
 	REMOTE_ADDR client;
+	CLIENT_INFO client_info;
 
     listen_socket = create_udp_socket();
     listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, PORT);
@@ -188,8 +197,12 @@ int main(int argc, char const *argv[]){
 
 		client.ip = cli_addr.sin_addr.s_addr;
 		client.port = ntohs(cli_addr.sin_port);
+		//Seta informações de client_info. WARNING: Caso seja feito alteração no pacote enviado, deve-se alterar
+		//para que  o msg.data.data do memcpy seja só o username.
+		client_info.client = &client;
+		memcpy(client_info.username,msg.data.data,sizeof(char) * MAX_NAME_LENGTH);
 
-		new_sock = new_socket(&client);
+		new_sock = new_socket(&client_info);
 
 		if(new_sock < 0){
 			printf("ERROR creating socket\n");

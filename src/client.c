@@ -8,6 +8,7 @@
 #include "../include/filesystem.h"
     
 int socketfd;
+char username[64];
 REMOTE_ADDR server;
 
 /** Envia o arquivo para o servidor **/
@@ -73,8 +74,17 @@ int listServer(){
 };
 
 /** Lista os arquivos salvos no diretório “sync_dir” **/
-int listClient(){
-    return -1;
+int list_client(){
+    DIR_ENTRY *entries = malloc(sizeof(DIR_ENTRY));
+    int n_entries;
+    //DIR_ENTRY entries[10];
+
+    n_entries = get_dir_status(LOCAL_DIR, &entries);
+    print_dir_status(&entries, n_entries);
+
+    free(entries);
+
+    return n_entries;
 };
 
 /** Cria o diretório “sync_dir” e inicia as atividades de sincronização **/
@@ -130,7 +140,7 @@ void run_cli(){
                 printf("Error listing server files.\n");
             }
         }else if(!strcmp(user_cmd, "list_client\n")){
-            if (listClient() == -1){
+            if (list_client() == -1){
                 printf("Error listing client files.\n");
             }
         }else if(!strcmp(user_cmd, "get_sync_dir\n")){
@@ -150,9 +160,15 @@ void run_cli(){
     } while(session_alive);
 }
 
+void *sync_files(){
+    while(1){
+        // code here
+    }
+}
+
 int main(int argc, char const *argv[]){
-    char username[64];
     struct hostent *host;
+    pthread_t cli_thread;
 
     if(argc < 3){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");
@@ -181,6 +197,8 @@ int main(int argc, char const *argv[]){
     server.port = hello(socketfd, server, username);
 
     printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
+
+    pthread_create(&cli_thread, NULL, sync_files, NULL);
 
     run_cli();
     

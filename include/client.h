@@ -18,7 +18,7 @@ int deleteFile(char* fileName);
 int listServer();
 
 /** Lista os arquivos salvos no diretório “sync_dir” **/
-int listClient();
+int list_client();
 
 /** Cria o diretório “sync_dir” e inicia as atividades de sincronização **/
 int getSyncDir();
@@ -31,5 +31,8 @@ void print_cli_options();
 
 /** Exibe uma interface para entrada de comandos para o usuário */
 void run_cli();
+
+/** Sincroniza os arquivos com o servidor */
+void *sync_files();
 
 #endif

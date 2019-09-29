@@ -4,8 +4,7 @@
 /**
  *  Inicializa um socket UDP
  * */
-int create_udp_socket()
-{
+int create_udp_socket(){
     int sockfd;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
@@ -19,8 +18,7 @@ int create_udp_socket()
 /** 
  *  Vincula um socket com um IP e uma porta
  * */
-int bind_udp_socket(int socket, char *ip, unsigned int port)
-{
+int bind_udp_socket(int socket, char *ip, unsigned int port){
     struct sockaddr_in addr;
 
     addr.sin_family = AF_INET;         // IPv4
@@ -135,7 +133,7 @@ int send_command(int socket, REMOTE_ADDR server, char command, char* arg){
     if(arg != NULL){
         strcpy((*(COMMAND *) &(packet.data)).argument, arg);
     }else{
-        packet.data.data[0] = (char) '\0';
+        strcpy((*(COMMAND *) &(packet.data)).argument, "");
     };
     //Envia o pacote
     return send_packet(socket, server, packet);

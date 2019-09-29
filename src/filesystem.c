@@ -36,7 +36,7 @@ int mkdir_recursive(char *dir){
 int create_user_dir(char *user){
     int n;
 	char path[256];
-	strcpy(path, "./user_data/");
+	strcpy(path, SERVER_DIR);
 	strcat(path, user);
 
     n = mkdir_recursive(path);
@@ -53,7 +53,7 @@ int create_user_dir(char *user){
 int create_local_dir(){
     int n;
 	char path[256];
-	strcpy(path, "./sync_dir");
+	strcpy(path, LOCAL_DIR);
 
 	n = mkdir_recursive(path);
 
@@ -105,6 +105,69 @@ int write_packet_to_the_file(PACKET *packet, FILE *file){
         return ERR_WRITING_FILE;
     }
 
+}
+
+int get_dir_status(char *dir_path, DIR_ENTRY **entries){
+    DIR *d;
+    int i = 0;
+    struct dirent *entry;
+
+    d = opendir(dir_path);
+
+    if (d == NULL) {
+        fprintf (stderr, "Cannot open directory '%s': %s\n",
+                 dir_path, strerror (errno));
+        return -1;
+    }
+
+    while (1) {
+        char file_path[256] = "";
+        struct stat file_stat;
+        
+        entry = readdir(d);
+        if (entry == NULL)
+            break;
+        
+        if((strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) != 0){
+            i++;
+
+            strcat(file_path, dir_path);
+            strcat(file_path, "/");
+            strcat(file_path, entry->d_name);
+            
+            if(stat(file_path, &file_stat) < 0){
+                fprintf (stderr, "Cannot stat file '%s': %s\n", file_path, strerror (errno));
+                return -1;
+            }
+
+            *entries = realloc(*entries, i * sizeof(DIR_ENTRY));
+
+            strcpy((*entries)[i-1].name, entry->d_name);
+            (*entries)[i-1].size = file_stat.st_size;
+            (*entries)[i-1].last_modified = file_stat.st_mtime;
+        }
+    }
+
+    /* Close the directory. */
+    if (closedir (d) < 0) {
+        fprintf (stderr, "Could not close '%s': %s\n", dir_path, strerror (errno));
+        return -1;
+    }
+
+    return i;
+}
+
+void print_dir_status(DIR_ENTRY **entries, int n){
+    int i;
+
+    // E AQUI NÃO??
+    printf("\n");
+    for(i=0; i<n; i++){
+        printf("-> %s\n", (*entries)[i].name);
+        printf("    size: %ld\n", (*entries)[i].size);
+        printf("    last modified: %s", ctime(&(*entries)[i].last_modified));
+    }
+    printf("\n");
 }
 
 

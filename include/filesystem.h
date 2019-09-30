@@ -11,8 +11,9 @@
 #include <time.h>
 #include "../include/communication.h"
 
-#define LOCAL_DIR "./sync_dir"
+#define LOCAL_DIR "./sync_dir/"
 #define SERVER_DIR "./user_data/"
+#define MAX_PATH_LENGTH 255
 
 typedef struct DirEntry{
     char name[256];

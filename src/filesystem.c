@@ -94,7 +94,7 @@ int write_packet_to_the_file(PACKET *packet, FILE *file){
     //Sets the pointer
     fseek(file,packet->header.seqn * DATA_LENGTH, SEEK_SET);
     //Writes the pointer to the file
-    bytes_written = fwrite(packet->data.data,sizeof(char), packet->header.length,file);
+    bytes_written = fwrite(packet->data,sizeof(char), packet->header.length,file);
     rewind(file);
 
     if (bytes_written == sizeof(char) * packet->header.length){
@@ -132,7 +132,6 @@ int get_dir_status(char *dir_path, DIR_ENTRY **entries){
             i++;
 
             strcat(file_path, dir_path);
-            strcat(file_path, "/");
             strcat(file_path, entry->d_name);
             
             if(stat(file_path, &file_stat) < 0){
@@ -160,7 +159,6 @@ int get_dir_status(char *dir_path, DIR_ENTRY **entries){
 void print_dir_status(DIR_ENTRY **entries, int n){
     int i;
 
-    // E AQUI NÃO??
     printf("\n");
     for(i=0; i<n; i++){
         printf("-> %s\n", (*entries)[i].name);

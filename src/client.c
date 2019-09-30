@@ -35,7 +35,7 @@ int uploadFile(char* filePath){
                     //Preenchimento do pacote: dados e cabeçalho
                     currentPacketLenght = (sourceFileSizeRemaining / DATA_LENGTH) >= 1? DATA_LENGTH : sourceFileSizeRemaining % DATA_LENGTH;
                     fread(buffer,sizeof(char),DATA_LENGTH,sourceFile);
-                    memcpy(dataToTransfer.data.data,buffer,currentPacketLenght);
+                    memcpy(dataToTransfer.data,buffer,currentPacketLenght);
                     dataToTransfer.header.seqn = i;
                     dataToTransfer.header.length = currentPacketLenght;
                             
@@ -77,7 +77,6 @@ int listServer(){
 int list_client(){
     DIR_ENTRY *entries = malloc(sizeof(DIR_ENTRY));
     int n_entries;
-    //DIR_ENTRY entries[10];
 
     n_entries = get_dir_status(LOCAL_DIR, &entries);
     print_dir_status(&entries, n_entries);
@@ -160,9 +159,43 @@ void run_cli(){
     } while(session_alive);
 }
 
+int request_sync(){
+    DIR_ENTRY *entries = malloc(sizeof(DIR_ENTRY));
+    int n_entries, n_packets, n, packet_number = 0;
+    PACKET packet;
+
+    n_entries = get_dir_status(LOCAL_DIR, &entries);
+    n_packets = ceil((n_entries * sizeof(DIR_ENTRY)) / (double) DATA_LENGTH);
+
+    send_command(socketfd, server, SYNC_DIR, NULL);
+
+    while(packet_number < n_packets){
+        packet.header.type = DATA;
+        packet.header.seqn = packet_number;
+        packet.header.total_size = n_packets;     
+        if(packet_number == n_packets - 1)
+            packet.header.length = (n_entries * sizeof(DIR_ENTRY)) % DATA_LENGTH;
+        else
+            packet.header.length = DATA_LENGTH;
+
+        memcpy(&packet.data, entries + packet_number*sizeof(DIR_ENTRY), packet.header.length);
+
+        n = send_packet(socketfd, server, packet);
+        if(n < 0){
+            printf ("Error send_packet: %s\n", strerror(errno));
+            return -1;
+        }
+    }
+
+    free(entries);
+    return 0;
+}
+
 void *sync_files(){
+    request_sync();
+
     while(1){
-        // code here
+        // use inotify to request_sync when a file changes
     }
 }
 
@@ -195,7 +228,6 @@ int main(int argc, char const *argv[]){
 
     // Conecta com o servidor e atualiza a porta
     server.port = hello(socketfd, server, username);
-
     printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
 
     pthread_create(&cli_thread, NULL, sync_files, NULL);

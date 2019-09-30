@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
 #include <errno.h>
 #include <pthread.h> 
 
@@ -53,10 +54,6 @@ typedef struct PacketHeader{
 
 #define DATA_LENGTH (PACKET_SIZE - sizeof(PACKET_HEADER))
 
-typedef struct PacketData{
-    char data[DATA_LENGTH];   // Espaço restante do datagrama é preenchido com dados
-} PACKET_DATA;
-
 /** Estrutura com as informações do servidor */
 typedef struct RemoteAddr{
     unsigned long ip; // load with inet_aton()
@@ -65,13 +62,13 @@ typedef struct RemoteAddr{
 
 typedef struct Packet{
     PACKET_HEADER header;
-    PACKET_DATA data;
+    char data[DATA_LENGTH];
 } PACKET;
 
 /** Estrutura do comando **/
 typedef struct command{
     char code;
-    char argument[DATA_LENGTH - 1];
+    char argument[DATA_LENGTH - 1]; // Espaço restante do datagrama é preenchido com dados
 } COMMAND;
 
 /** Inicializa um socket UDP */

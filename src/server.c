@@ -4,9 +4,6 @@
 #include "../include/communication.h"
 #include "../include/filesystem.h"
 
-#define MAX_PATH_LENGTH 255
-
-
 
 /** 
  *  Escuta um cliente em um determinado socket 
@@ -14,18 +11,21 @@
 void *listen_to_client(void *client_info){
     int new_socket, n;
     PACKET msg;
-    REMOTE_ADDR addr = *(((CLIENT_INFO *) client_info)->client);
+    REMOTE_ADDR addr = ((CLIENT_INFO *) client_info)->client_addr;
+	char username[MAX_NAME_LENGTH];
     struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
     COMMAND *cmd;
-	char storage_root[15] = "user_data/";   
-	char storage_client[MAX_PATH_LENGTH];
-    new_socket = create_udp_socket();
+	char user_dir[MAX_PATH_LENGTH];
 
-	//Seta o path para o armazenamento de dados do cliente que solicitou algo ao servidor
-	//Consiste de uma pasta raiz para todos os clientes, mais pastas para cada cliente.
-	strcpy(storage_client,storage_root);
-	strcat(storage_client,((CLIENT_INFO*)client_info)->username);
+	strcpy(username, ((CLIENT_INFO*) client_info)->username);
+
+	// Path da pasta do usuário no servidor
+	strcpy(user_dir, SERVER_DIR);	
+	strcat(user_dir, username);
+	strcat(user_dir, "/");
+
+    new_socket = create_udp_socket();
 
     if(new_socket < 0){
         printf("ERROR creating new socket\n");
@@ -54,9 +54,9 @@ void *listen_to_client(void *client_info){
             switch((*cmd).code){
                 case UPLOAD:
                     if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
+                        printf("📝 [%s:%d] CMD: UPLOAD - Uploaded %s to %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument, username);
                         ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-						upload(cmd->argument,storage_client,new_socket);
+						upload(cmd->argument, user_dir, new_socket);
                     }else{
                         err(new_socket, (struct sockaddr *) &cli_addr, clilen, "UPLOAD missing argument");      
                     }
@@ -81,8 +81,9 @@ void *listen_to_client(void *client_info){
                     ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
                     break;
                 case SYNC_DIR:
-                    printf("📝 [%s:%d] CMD: SYNC_DIR\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
+                    printf("📝 [%s:%d] CMD: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, username);
                     ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+					sync_user(new_socket, user_dir);
                     break;
                 case EXIT:
                     printf("📝 [%s:%d] CMD: EXIT\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
@@ -111,65 +112,99 @@ int new_socket(CLIENT_INFO *client){
 
 #define MAX_PATH_LENGTH 255
 
-int upload(char *archive_name, char *archive_file, int dataSocket){
-	FILE *toBeCreated;
+int upload(char *filename, char *user_dir, int socket){
+	FILE *new_file;
 	struct sockaddr_in source_addr;
-	socklen_t socket_addr_len = sizeof(source_addr);
-	char *full_archive_path = malloc(sizeof(char) * MAX_PATH_LENGTH);
-	int last_received_packet;
-	int last_packet;
+	socklen_t source_addr_len = sizeof(source_addr);
+	char file_path[MAX_PATH_LENGTH];
+	int last_received_packet, final_packet, n, first_message_not_received = 1;
 	PACKET received;
-	int n;
-	int first_message_not_received = 1;
-
 
 	//Prepare archive path
-	strcpy(full_archive_path,archive_file);
-	strcat(full_archive_path,"/");
-	strcat(full_archive_path,archive_name);
-	printf("%s", full_archive_path);
-	toBeCreated = fopen(full_archive_path,"wb");
+	strcpy(file_path, user_dir);
+	strcat(file_path, filename);
 	
-	if(isOpened(toBeCreated)){
+	new_file = fopen(file_path, "wb");
+	
+	if(isOpened(new_file)){
 		do{
-			n = recvfrom(dataSocket,(void*) &received,PACKET_SIZE,0,(struct sockaddr *) &source_addr,&socket_addr_len);
+			n = recvfrom(socket, (void*) &received, PACKET_SIZE, 0, (struct sockaddr *) &source_addr, &source_addr_len);
 			if (n < 0){
-				printf("Error receiving the message");
-				err(dataSocket, (struct sockaddr *) &source_addr, socket_addr_len, "Error receiving the message");
+				fprintf(stderr, "ERROR receiving upload data: %s\n", strerror(errno));
+			err(socket, (struct sockaddr *) &source_addr, source_addr_len, "SERVER ERROR receiving upload data");
 			}
-			else{//Messace correctly received
-				ack(dataSocket,(struct sockaddr *) &source_addr,socket_addr_len); //Got your message 
+			else{	//Message correctly received
+				ack(socket,(struct sockaddr *) &source_addr,source_addr_len);
 				first_message_not_received = 0; //The first message was received
-				write_packet_to_the_file(&received,toBeCreated);
+				write_packet_to_the_file(&received,new_file);
 			}
-			last_packet = received.header.total_size - 1;
+			final_packet = received.header.total_size - 1;
 			last_received_packet = received.header.seqn;
 
 		}while(first_message_not_received);
 
 	
-		while(last_received_packet < last_packet){
-			n = recvfrom(dataSocket,(void*) &received,PACKET_SIZE,0,(struct sockaddr *) &source_addr,&socket_addr_len);
+		while(last_received_packet < final_packet){
+			n = recvfrom(socket, (void*) &received, PACKET_SIZE, 0, (struct sockaddr *) &source_addr, &source_addr_len);
 			if (n >= 0){
-				ack(dataSocket,(struct sockaddr *) &source_addr,socket_addr_len); //Got your message
-				write_packet_to_the_file(&received,toBeCreated);
+				ack(socket,(struct sockaddr *) &source_addr,source_addr_len);
+				write_packet_to_the_file(&received,new_file);
 				last_received_packet = received.header.seqn;
 			}
 			else{
-				err(dataSocket, (struct sockaddr *) &source_addr, socket_addr_len, "Error receiving the message");
+				err(socket, (struct sockaddr *) &source_addr, source_addr_len, "Error receiving the message");
 			}
 		}
 
-		fclose(toBeCreated);
+		fclose(new_file);
 		return SUCCESS;
-		
-		
-			
 	}
 	else{
-		printf("Erro ao criar arquivo em função de upload, tentou-se criar o arquivo: %s", full_archive_path);
+		printf("Erro ao criar arquivo em função de upload, tentou-se criar o arquivo: %s", file_path);
 		return ERR_OPEN_FILE;
 	}
+}
+
+int sync_user(int socket, char *user_dir){
+	DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
+	DIR_ENTRY *client_entries = malloc(sizeof(DIR_ENTRY));
+	int n_server_ent, n_client_ent, client_length = 0;
+	int n_packets, n, last_recv_packet;
+	struct sockaddr_in source_addr;
+	socklen_t source_addr_len = sizeof(source_addr);
+	PACKET recv;
+
+	n_server_ent = get_dir_status(user_dir, &server_entries);
+
+	do {
+		n = recvfrom(socket, (void*) &recv, PACKET_SIZE, 0, (struct sockaddr *) &source_addr, &source_addr_len);
+		if (n < 0){
+			fprintf(stderr, "ERROR receiving client_entries: %s\n", strerror(errno));
+			err(socket, (struct sockaddr *) &source_addr, source_addr_len, "SERVER ERROR receiving client_entries");
+		}
+		else {	//Message correctly received
+			ack(socket,(struct sockaddr *) &source_addr,source_addr_len);
+			client_entries = realloc(client_entries, client_length + recv.header.length);
+			memcpy(client_entries + client_length, &recv.data, recv.header.length);
+			client_length += recv.header.length;
+		}
+
+		n_packets = recv.header.total_size;
+		last_recv_packet = recv.header.seqn;
+	} while(last_recv_packet < n_packets - 1);
+
+	n_client_ent = client_length / sizeof(DIR_ENTRY);
+
+	printf("Entradas no servidor:\n");
+	print_dir_status(&server_entries, n_server_ent);
+
+	printf("Entradas no Cliente:\n");
+	print_dir_status(&client_entries, n_client_ent);
+
+	free(server_entries);
+	free(client_entries);
+
+	return 0;
 }
 
 int main(int argc, char const *argv[]){
@@ -177,7 +212,7 @@ int main(int argc, char const *argv[]){
 	struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
 	PACKET msg;
-	REMOTE_ADDR client;
+	REMOTE_ADDR client_addr;
 	CLIENT_INFO client_info;
 
     listen_socket = create_udp_socket();
@@ -195,12 +230,13 @@ int main(int argc, char const *argv[]){
 		if (n < 0) 
 			printf("ERROR on recvfrom");
 
-		client.ip = cli_addr.sin_addr.s_addr;
-		client.port = ntohs(cli_addr.sin_port);
+		client_addr.ip = cli_addr.sin_addr.s_addr;
+		client_addr.port = ntohs(cli_addr.sin_port);
+
 		//Seta informações de client_info. WARNING: Caso seja feito alteração no pacote enviado, deve-se alterar
 		//para que  o msg.data.data do memcpy seja só o username.
-		client_info.client = &client;
-		memcpy(client_info.username,msg.data.data,sizeof(char) * MAX_NAME_LENGTH);
+		client_info.client_addr = client_addr;
+		strcpy(client_info.username, (char *) msg.data);
 
 		new_sock = new_socket(&client_info);
 
@@ -212,7 +248,7 @@ int main(int argc, char const *argv[]){
 		if (create_user_dir((char *) &(msg.data)) < 0) 
 			exit(0);
 		
-		printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &client.ip), client.port,(char *) &(msg.data));	
+		printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port,(char *) &(msg.data));	
 	}
 
     return 0;

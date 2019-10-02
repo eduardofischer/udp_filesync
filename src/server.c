@@ -118,13 +118,13 @@ int upload(FILE_INFO file_info, char *archive_file, int dataSocket){
 	int last_packet;
 	PACKET received;
 	int n;
-	struct utimbuf time[2];
+	struct utimbuf time;
 	int first_message_not_received = 1;
 
 
 	//Timestamps novos
-	time[0].actime = file_info.access_time;
-	time[1].modtime = file_info.modification_time;
+	time.actime = file_info.access_time;
+	time.modtime = file_info.modification_time;
 
 	//Prepare archive path
 	strcpy(full_archive_path,archive_file);
@@ -165,7 +165,7 @@ int upload(FILE_INFO file_info, char *archive_file, int dataSocket){
 		
 		
 		fclose(toBeCreated);
-		utime(full_archive_path,time);
+		utime(full_archive_path,&time);
 		
 		return SUCCESS;
 		

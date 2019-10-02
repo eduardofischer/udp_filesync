@@ -48,9 +48,7 @@
 
 typedef struct FileInfo{
     time_t modification_time;
-    time_t modification_time_n_sec;
     time_t access_time;
-    time_t access_time_n_sec;
     char filename[MAX_NAME_LENGTH];
 }FILE_INFO;
 

@@ -149,3 +149,19 @@ void init_data_packet_header(PACKET *toInit, uint32_t total_size){
     toInit->header.seqn = 0;
     toInit->header.total_size = total_size;
 }
+
+int send_upload(int socket, REMOTE_ADDR server, FILE_INFO *file_info){
+    PACKET packet;
+
+    //Prepara o pacote de comando
+    packet.header.type = CMD;
+    packet.header.seqn = 0;
+    packet.header.total_size = 1;
+    packet.header.length = sizeof(COMMAND);
+
+    (*(COMMAND *) &(packet.data)).code = UPLOAD;
+    
+    //Copia file_info para o argumento de comando genérico, para não quebrar com a estrutura padrão.
+    memcpy((*(COMMAND *) &(packet.data)).argument,file_info, sizeof(FILE_INFO));
+    return send_packet(socket, server, packet);
+}

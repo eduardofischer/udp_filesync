@@ -16,19 +16,26 @@ int uploadFile(char* filePath){
     int response, i;
     FILE *sourceFile;
     PACKET dataToTransfer;
+    FILE_INFO file_info;
+    struct stat file_stats;
     char buffer[DATA_LENGTH];
     char filename[FILE_NAME_SIZE];
     int number_of_dirs;
     //Divide os subdiretorios em strings e então só pega o nome do arquivo.
     char **strings = splitPath(filePath, &number_of_dirs);
     strcpy(filename,strings[number_of_dirs - 1]);
-
+    
+    //Pega as estatísticas do arquivo e preenche a estrutura file_info
+    stat(filePath,&file_stats);   
+    strcpy(file_info.filename,filename);
+    file_info.modification_time = file_stats.st_mtime;
+    file_info.access_time = file_stats.st_atime;
 
     socketDataTransfer = create_udp_socket();
 
 
     if (socketDataTransfer != ERR_SOCKET){
-        response = send_command(socketDataTransfer, server, UPLOAD, filename);
+        response = send_upload(socketDataTransfer, server, &file_info);
         if(response >= 0){
              sourceFile = fopen(filePath,"rb");
              if(isOpened(sourceFile)){       

@@ -11,7 +11,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <pthread.h> 
+#include <pthread.h>
+
+#define MAX_NAME_LENGTH 50
 
 #define PORT 4000
 
@@ -42,6 +44,15 @@
 #define LST_CLI  0x08
 #define SYNC_DIR 0x09
 #define EXIT     0x10
+
+
+typedef struct FileInfo{
+    time_t modification_time;
+    time_t modification_time_n_sec;
+    time_t access_time;
+    time_t access_time_n_sec;
+    char filename[MAX_NAME_LENGTH];
+}FILE_INFO;
 
 /** Estrutura do datagrama UDP */
 typedef struct PacketHeader{
@@ -107,6 +118,11 @@ int hello(int socket, REMOTE_ADDR addr, char *username);
  *  Envia um comando genérico ao servidor e aguarda pelo ack do mesmo 
  * */
 int send_command(int socket, REMOTE_ADDR server, char command, char* arg);
+
+/** 
+ *  Envia um comando de upload ao servidor e aguarda pelo ack do mesmo 
+ * */
+int send_upload(int socket, REMOTE_ADDR server, FILE_INFO *file_info);
 
 /**
  *  Inicializa o pacote de dados a ser enviado para o servidor. 

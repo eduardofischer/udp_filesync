@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
+#include <sys/time.h>
 #include <string.h>
 #include "../include/communication.h"
 

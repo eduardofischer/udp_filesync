@@ -23,7 +23,7 @@ void *listen_to_client(void *client_info);
  */
 int new_socket(CLIENT_INFO *client);
 
-int upload(char *archive_name, char *archive_file, int data_socket);
+int upload(FILE_INFO file_info, char *archive_file, int data_socket);
 
 
 #endif

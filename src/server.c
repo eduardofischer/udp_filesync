@@ -3,6 +3,7 @@
 #include "../include/server.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
+#include <utime.h>
 
 
 
@@ -16,6 +17,7 @@ void *listen_to_client(void *client_info){
     struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
     COMMAND *cmd;
+	FILE_INFO file_info;
 	char storage_root[15] = "user_data/";   
 	char storage_client[MAX_PATH_LENGTH];
     new_socket = create_udp_socket();
@@ -51,13 +53,11 @@ void *listen_to_client(void *client_info){
 
             switch((*cmd).code){
                 case UPLOAD:
-                    if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
-                        ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-						upload(cmd->argument,storage_client,new_socket);
-                    }else{
-                        err(new_socket, (struct sockaddr *) &cli_addr, clilen, "UPLOAD missing argument");      
-                    }
+					file_info = *((FILE_INFO*)cmd->argument);
+                    printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
+                    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+					upload(file_info,storage_client,new_socket);
+                   
                     break;
                 case DOWNLOAD:
                     if(strlen((*cmd).argument) > 0){
@@ -109,7 +109,7 @@ int new_socket(CLIENT_INFO *client){
 
 #define MAX_PATH_LENGTH 255
 
-int upload(char *archive_name, char *archive_file, int dataSocket){
+int upload(FILE_INFO file_info, char *archive_file, int dataSocket){
 	FILE *toBeCreated;
 	struct sockaddr_in source_addr;
 	socklen_t socket_addr_len = sizeof(source_addr);
@@ -118,13 +118,18 @@ int upload(char *archive_name, char *archive_file, int dataSocket){
 	int last_packet;
 	PACKET received;
 	int n;
+	struct utimbuf time[2];
 	int first_message_not_received = 1;
 
+
+	//Timestamps novos
+	time[0].actime = file_info.access_time;
+	time[1].modtime = file_info.modification_time;
 
 	//Prepare archive path
 	strcpy(full_archive_path,archive_file);
 	strcat(full_archive_path,"/");
-	strcat(full_archive_path,archive_name);
+	strcat(full_archive_path,file_info.filename);
 	printf("%s", full_archive_path);
 	toBeCreated = fopen(full_archive_path,"wb");
 	
@@ -157,8 +162,11 @@ int upload(char *archive_name, char *archive_file, int dataSocket){
 				err(dataSocket, (struct sockaddr *) &source_addr, socket_addr_len, "Error receiving the message");
 			}
 		}
-
+		
+		
 		fclose(toBeCreated);
+		utime(full_archive_path,time);
+		
 		return SUCCESS;
 		
 		

@@ -1,6 +1,5 @@
 #include "../include/filesystem.h"
 #include "../include/communication.h"
-
 /** 
  *  Cria um diretório de forma recursiva
  *  Retorno: 0 - Diretório Criado
@@ -108,3 +107,42 @@ int write_packet_to_the_file(PACKET *packet, FILE *file){
 }
 
 
+char **splitPath(char *name, int *size) {
+	int i = 0, n = 0;
+	char *nameCopy = malloc(strlen(name) + 1);
+  	strcpy(nameCopy, name);
+	// Conta ocorrencias
+	if (strlen(nameCopy) > 0 && nameCopy[0] != '/')
+		n++;
+	while (nameCopy[i] != '\0') {
+		if (nameCopy[i] == '/')
+			n++;
+		i++;
+	}
+	if (strlen(nameCopy) > 0 && nameCopy[strlen(nameCopy)-1] == '/') {
+		nameCopy[strlen(nameCopy)-1] = '\0';
+		n--;
+	}
+	
+	*size = n;
+
+	i = 0;
+	char **strings;
+	strings = (char**)malloc(sizeof(char)*n);
+	char *substring;
+	char *nameBuff = strdup(nameCopy); // Necessaroi para strsep
+	while( (substring = strsep(&nameBuff,"/")) != NULL ) {
+		if (strlen(substring) > 0) {
+			strings[i] = (char*) malloc(sizeof(char)*FILE_NAME_SIZE);
+			strcpy(strings[i], substring);
+			i++;
+		}
+	}
+	*size = n;
+	if (*size == 1 && strings[0] == NULL) {
+		*size = 0;
+		free(strings);
+		return NULL;
+	}
+	return strings;
+}

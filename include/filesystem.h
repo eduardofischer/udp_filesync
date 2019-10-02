@@ -1,6 +1,3 @@
-#ifndef __filesystem__
-#define __filesystem__
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -9,6 +6,8 @@
 #include <errno.h>
 #include <string.h>
 #include "../include/communication.h"
+
+#define FILE_NAME_SIZE 255
 
 
 /** Cria diretórios recursivamente */
@@ -34,6 +33,6 @@ int fileSizeInPackets(int fileSize);
 */
 int write_packet_to_the_file(PACKET *packet, FILE *file);
 
+char **splitPath(char *name, int *size); 
 
 
-#endif

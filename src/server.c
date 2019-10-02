@@ -4,8 +4,6 @@
 #include "../include/communication.h"
 #include "../include/filesystem.h"
 
-#define MAX_PATH_LENGTH 255
-
 
 
 /** 

@@ -2,6 +2,7 @@
 #define __filesync_server__
 
 #define MAX_NAME_LENGTH 50
+#define MAX_PATH_LENGTH 255
 
 
 #include "communication.h"

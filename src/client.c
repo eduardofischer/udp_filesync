@@ -12,69 +12,32 @@ REMOTE_ADDR server;
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath){
-    int socketDataTransfer;
-    int response, i;
-    FILE *sourceFile;
-    PACKET dataToTransfer;
-    FILE_INFO file_info;
-    struct stat file_stats;
-    char buffer[DATA_LENGTH];
-    char filename[FILE_NAME_SIZE];
-    int number_of_dirs;
-    //Divide os subdiretorios em strings e então só pega o nome do arquivo.
-    char **strings = splitPath(filePath, &number_of_dirs);
-    strcpy(filename,strings[number_of_dirs - 1]);
-    
-    //Pega as estatísticas do arquivo e preenche a estrutura file_info
-    stat(filePath,&file_stats);   
-    strcpy(file_info.filename,filename);
-    file_info.modification_time = file_stats.st_mtime;
-    file_info.access_time = file_stats.st_atime;
-
-    socketDataTransfer = create_udp_socket();
-
-
-    if (socketDataTransfer != ERR_SOCKET){
-        response = send_upload(socketDataTransfer, server, &file_info);
-        if(response >= 0){
-             sourceFile = fopen(filePath,"rb");
-             if(isOpened(sourceFile)){       
-                int sourceFileSize = fileSize(sourceFile); 
-                int sourceFileSizeRemaining = sourceFileSize;
-                int currentPacketLenght;
-                init_data_packet_header(&dataToTransfer,(u_int32_t)fileSizeInPackets(sourceFileSize));
-              
-                for(i = 0; i < fileSizeInPackets(sourceFileSize); i++){
-                    //Preenchimento do pacote: dados e cabeçalho
-                    currentPacketLenght = (sourceFileSizeRemaining / DATA_LENGTH) >= 1? DATA_LENGTH : sourceFileSizeRemaining % DATA_LENGTH;
-                    fread(buffer,sizeof(char),DATA_LENGTH,sourceFile);
-                    memcpy(dataToTransfer.data.data,buffer,currentPacketLenght);
-                    dataToTransfer.header.seqn = i;
-                    dataToTransfer.header.length = currentPacketLenght;
-                            
-                    //Enquanto o servidor não recebeu o pacote, tenta re-enviar pra ele
-                    while(send_packet(socketDataTransfer,server,dataToTransfer) < 0);
-                    
-                    //Tamanho restante a ser transmitido
-                    sourceFileSizeRemaining -= currentPacketLenght;
-                }
-                return SUCCESS;
-             }
-             return ERR_OPEN_FILE;
-        } 
-        else{
-            printf("Server didn't return ack (busy?)\n");
-            return ERR_ACK;
-        }
-    }
-
-    return ERR_SOCKET; 
-};
+    return send_file(server,filePath);
+}
 
 /** Faz o download de um arquivo do servidor **/
-int downloadFile(char *fileName){
-    return -1;
-};
+int downloadFile(int socket,char *filePath){
+    int n;
+    PACKET msg;
+    struct sockaddr_in cli_addr;
+	socklen_t clilen = sizeof(cli_addr);
+    FILE_INFO file_info;
+    COMMAND *cmd;
+
+    //Envia um comando de download
+    send_command(socket,server,DOWNLOAD,filePath);
+    //Espera pelas mensagens contendo as informações do arquivo (tempos)
+    do{
+        n = recvfrom(socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
+    }while(n < 0);
+    ack(socket,(struct sockaddr*)&cli_addr, clilen);
+    //Após recebida a mensagem acessa as informações do arquivo
+    cmd = (COMMAND *) &msg.data;
+    file_info = *((FILE_INFO*)cmd->argument);
+    printf("%s",file_info.filename);
+    //Recebe o arquivo informado em file_info.
+    return receive_file(file_info, ".", socket);
+}
 
 /** Exclui um arquivo de sync_dir **/
 int deleteFile(char* fileName){
@@ -112,7 +75,7 @@ void print_cli_options(){
     printf("\t🏃  exit\n\n");
 }
 
-void run_cli(){
+void run_cli(int socket){
     print_cli_options();
 
     char user_input[COMMAND_SIZE];
@@ -132,7 +95,7 @@ void run_cli(){
                 printf("Error uploading file.\n");
             }
         }else if(!strcmp(user_cmd, "download")) {
-           if (downloadFile(user_arg) == -1){
+           if (downloadFile(socket,user_arg) == -1){
                 printf("Error downloading file.\n");
             }
         }else if(!strcmp(user_cmd, "delete")) {
@@ -196,7 +159,7 @@ int main(int argc, char const *argv[]){
 
     printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
 
-    run_cli();
+    run_cli(socketfd);
     
     return 0;
 }

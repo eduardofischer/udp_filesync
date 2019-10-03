@@ -18,8 +18,10 @@ void *listen_to_client(void *client_info){
 	socklen_t clilen = sizeof(cli_addr);
     COMMAND *cmd;
 	FILE_INFO file_info;
+	struct stat stats;
 	char storage_root[15] = "user_data/";   
 	char storage_client[MAX_PATH_LENGTH];
+	char download_file_path[MAX_PATH_LENGTH];
     new_socket = create_udp_socket();
 
 	//Seta o path para o armazenamento de dados do cliente que solicitou algo ao servidor
@@ -56,13 +58,25 @@ void *listen_to_client(void *client_info){
 					file_info = *((FILE_INFO*)cmd->argument);
                     printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
                     ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-					upload(file_info,storage_client,new_socket);
+					receive_file(file_info,storage_client,new_socket);
                    
                     break;
                 case DOWNLOAD:
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
                         ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+						
+						strcpy(download_file_path,storage_client);
+						strcat(download_file_path,"/");
+						strcat(download_file_path,cmd->argument);
+						stat(download_file_path,&stats);
+						
+						strcpy(file_info.filename,cmd->argument);
+						file_info.access_time = stats.st_atime;
+						file_info.modification_time = stats.st_mtime;
+						printf("%s", download_file_path);
+						send_file(addr,download_file_path);
+						
                     }else
                         err(new_socket, (struct sockaddr *) &cli_addr, clilen, "DOWNLOAD missing argument"); 
                     break;

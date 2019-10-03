@@ -87,26 +87,6 @@ int fileSizeInPackets(int fileSize){
     return totalPackets;
 }
 
-
-int write_packet_to_the_file(PACKET *packet, FILE *file){
-    int bytes_written;
-    //Sets the pointer
-    fseek(file,packet->header.seqn * DATA_LENGTH, SEEK_SET);
-    //Writes the pointer to the file
-    bytes_written = fwrite(packet->data.data,sizeof(char), packet->header.length,file);
-    rewind(file);
-
-    if (bytes_written == sizeof(char) * packet->header.length){
-        return SUCCESS;
-    }
-    else{
-        printf("There was a error writing to the file.");
-        return ERR_WRITING_FILE;
-    }
-
-}
-
-
 char **splitPath(char *name, int *size) {
 	int i = 0, n = 0;
 	char *nameCopy = malloc(strlen(name) + 1);

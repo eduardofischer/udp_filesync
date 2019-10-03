@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <string.h>
-#include "../include/communication.h"
 
 #define FILE_NAME_SIZE 255
 
@@ -28,11 +27,6 @@ int isOpened(FILE *sourceFile);
 
 /**Determina o tamanho do arquivo em pacotes. **/
 int fileSizeInPackets(int fileSize);
-
-/**Escreve o pacote num arquivo, lidando com os ofsets dentro do arquivo. 
- * Deixa o ponteiro no ponto onde estava antes.
-*/
-int write_packet_to_the_file(PACKET *packet, FILE *file);
 
 char **splitPath(char *name, int *size); 
 

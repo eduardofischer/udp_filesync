@@ -145,7 +145,7 @@ void run_cli(){
         user_cmd = strtok(user_input, " ");
         user_arg = strtok(NULL, " \n");
 
-        if(strlen(user_arg) > FILE_NAME_SIZE){
+        if(user_arg != NULL && strlen(user_arg) > FILE_NAME_SIZE){
             printf("Filename too long, max is 255 characters. Please enter your command again.");
             run_cli();
             exit(0);

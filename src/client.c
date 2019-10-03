@@ -46,7 +46,7 @@ int uploadFile(char* filePath){
               
                 for(i = 0; i < fileSizeInPackets(sourceFileSize); i++){
                     //Preenchimento do pacote: dados e cabeçalho
-                    currentPacketLenght = (sourceFileSizeRemaining / DATA_LENGTH) >= 1? DATA_LENGTH : sourceFileSizeRemaining % DATA_LENGTH;
+                    currentPacketLenght = (sourceFileSizeRemaining / DATA_LENGTH) >= 1? DATA_LENGTH : sourceFileSizeRemaining;
                     fread(buffer,sizeof(char),DATA_LENGTH,sourceFile);
                     memcpy(dataToTransfer.data.data,buffer,currentPacketLenght);
                     dataToTransfer.header.seqn = i;
@@ -78,7 +78,25 @@ int downloadFile(char *fileName){
 
 /** Exclui um arquivo de sync_dir **/
 int deleteFile(char* fileName){
-    return -1;
+    int socketDataTransfer;
+    int response;
+
+    socketDataTransfer = create_udp_socket();
+
+    if (socketDataTransfer != ERR_SOCKET){
+        response = send_command(socketDataTransfer, server, DELETE, fileName);
+        
+        if(response >= 0){
+            return SUCCESS;
+        }
+        else{
+            printf("Server didn't return ack (busy?)\n");
+            return ERR_ACK;
+        }
+    }
+    else{
+        return ERR_SOCKET; 
+    };
 };
 
 /** Lista os arquivos salvos no servidor associados ao usuário **/
@@ -126,6 +144,12 @@ void run_cli(){
 
         user_cmd = strtok(user_input, " ");
         user_arg = strtok(NULL, " \n");
+
+        if(strlen(user_arg) > FILE_NAME_SIZE){
+            printf("Filename too long, max is 255 characters. Please enter your command again.");
+            run_cli();
+            exit(0);
+        }
         
         if (!strcmp(user_cmd,"upload")) {
             if (uploadFile(user_arg) == -1){

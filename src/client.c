@@ -12,7 +12,20 @@ REMOTE_ADDR server;
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath){
-    return send_file(server,filePath);
+    FILE *file_to_upload;
+
+    //Para testar se o arquivo existe
+    file_to_upload = fopen(filePath,"rb");
+
+    //Caso exista, fecha e chama send_file
+    if(file_to_upload != NULL){
+        fclose(file_to_upload);
+        return send_file(server,filePath);
+    }
+
+    //Caso nao exista retorna erro
+     printf("Ψ༼ຈل͜ຈ༽Ψ Satan says that the file doesn't exists.  (Typo?) Ψ༼ຈل͜ຈ༽Ψ");
+    return -1;
 }
 
 /** Faz o download de um arquivo do servidor **/

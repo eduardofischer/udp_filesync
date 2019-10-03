@@ -237,10 +237,13 @@ int sync_user(int socket, char *user_dir){
 	DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
 	DIR_ENTRY *client_entries = malloc(sizeof(DIR_ENTRY));
 	int n_server_ent, n_client_ent, client_length = 0;
-	int n_packets, n, last_recv_packet;
+	int n_packets, n, last_recv_packet, i, j;
 	struct sockaddr_in source_addr;
 	socklen_t source_addr_len = sizeof(source_addr);
 	PACKET recv;
+	char *downloadList = malloc(MAX_NAME_LENGTH);
+	char *uploadList = malloc(MAX_NAME_LENGTH);
+	int down_count = 0, up_count = 0, exists_in_client, exists_in_server;
 
 	n_server_ent = get_dir_status(user_dir, &server_entries);
 
@@ -263,11 +266,63 @@ int sync_user(int socket, char *user_dir){
 
 	n_client_ent = client_length / sizeof(DIR_ENTRY);
 
+	for(i=0; i < n_server_ent; i++){
+		exists_in_client = 0;
+		for(j=0; j < n_client_ent; j++){
+			if(!strcmp(server_entries[i].name, client_entries[j].name)){
+				exists_in_client = 1;
+				if(server_entries[i].last_modified < client_entries[j].last_modified){
+					// Caso o arquivo no cliente seja mais recente, adiciona à lista de uploads
+					up_count++;
+					uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
+					strcpy((char*)(uploadList + (up_count - 1) * MAX_NAME_LENGTH), server_entries[i].name);
+				}
+			}
+		}
+		if(!exists_in_client){
+			// Caso o arquivo não exista do lado do cliente, adiciona à lista de downloads
+			down_count++;
+			downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
+			strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[i].name);
+		}
+	}
+
+	for(i=0; i < n_client_ent; i++){
+		exists_in_server = 0;
+		for(j=0; j < n_server_ent; j++){
+			if(!strcmp(server_entries[j].name, client_entries[i].name)){
+				exists_in_server = 1;
+				if(server_entries[j].last_modified > client_entries[i].last_modified){
+					// Caso o arquivo no servidor seja mais recente, adiciona à lista de downloads
+					down_count++;
+					downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
+					strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[j].name);
+				}
+			}
+		}
+		if(!exists_in_server){
+			// Caso o arquivonão exista no servidor, adiciona à lista de uploads
+			up_count++;
+			uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
+			strcpy((char*)(uploadList + (up_count - 1) * MAX_NAME_LENGTH), client_entries[i].name);
+		}
+	}
+
 	printf("Entradas no servidor:\n");
 	print_dir_status(&server_entries, n_server_ent);
 
 	printf("Entradas no Cliente:\n");
 	print_dir_status(&client_entries, n_client_ent);
+
+	printf("Lista de UPLOAD:\n");
+	for(i=0; i<up_count; i++)
+		printf("- %s\n", (char *)(uploadList + i*MAX_NAME_LENGTH));
+
+	printf("\nLista de DOWNLOAD:\n");
+	for(i=0; i<down_count; i++)
+		printf("- %s\n", (char *)(downloadList + i*MAX_NAME_LENGTH));
+
+	printf("\n");
 
 	free(server_entries);
 	free(client_entries);

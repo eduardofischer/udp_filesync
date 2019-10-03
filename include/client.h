@@ -9,7 +9,7 @@
 int uploadFile(char* filePath);
 
 /** Faz o download de um arquivo do servidor **/
-int downloadFile(char *fileName);
+int downloadFile(int socket,char *filePath);
 
 /** Exclui um arquivo de sync_dir **/
 int deleteFile(char* fileName);
@@ -30,6 +30,6 @@ int exit_client();
 void print_cli_options();
 
 /** Exibe uma interface para entrada de comandos para o usuário */
-void run_cli();
+void run_cli(int socket);
 
 #endif

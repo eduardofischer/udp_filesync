@@ -12,6 +12,8 @@
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sys/stat.h>
+#include "../include/filesystem.h"
 
 #define MAX_NAME_LENGTH 50
 
@@ -126,5 +128,14 @@ int send_upload(int socket, REMOTE_ADDR server, FILE_INFO *file_info);
  *  Inicializa o pacote de dados a ser enviado para o servidor. 
  * **/
 void init_data_packet_header(PACKET *toInit,uint32_t total_size);
+
+int send_file(REMOTE_ADDR address, char *filePath);
+
+int receive_file(FILE_INFO file_info, char *archive_file, int dataSocket);
+
+/**Escreve o pacote num arquivo, lidando com os ofsets dentro do arquivo. 
+ * Deixa o ponteiro no ponto onde estava antes.
+*/
+int write_packet_to_the_file(PACKET *packet, FILE *file);
 
 #endif

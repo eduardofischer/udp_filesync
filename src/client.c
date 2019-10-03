@@ -116,7 +116,7 @@ int hello(char *username){
         return -1;;
     }
 
-    if(recv_packet(sock_cmd, server_cmd, &response) < 0){
+    if(recv_packet(sock_cmd, NULL, &response) < 0){
         printf("ERROR recv_packet\n");
         return -1;
     }
@@ -194,8 +194,11 @@ void run_cli(){
 
 int request_sync(){
     DIR_ENTRY *entries = malloc(sizeof(DIR_ENTRY));
-    int n_entries, n_packets, n, packet_number = 0;
-    PACKET packet;
+    DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
+    int n_entries, n_packets, n, last_recv_packet, server_length = 0;
+    int n_server_ent, i;
+    PACKET recv_entries_pkt;
+    SYNC_LIST list;
 
     n_entries = get_dir_status(LOCAL_DIR, &entries);
     n_packets = ceil((n_entries * sizeof(DIR_ENTRY)) / (double) DATA_LENGTH);
@@ -205,25 +208,37 @@ int request_sync(){
         return -1;
     }
 
-    while(packet_number < n_packets){
-        packet.header.type = DATA;
-        packet.header.seqn = packet_number;
-        packet.header.total_size = n_packets;     
-        if(packet_number == n_packets - 1)
-            packet.header.length = (n_entries * sizeof(DIR_ENTRY)) % DATA_LENGTH;
-        else
-            packet.header.length = DATA_LENGTH;
+    do {
+        n = recv_packet(sock_sync, NULL, &recv_entries_pkt);
+		if (n < 0){
+			fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
+			//err(socket, (struct sockaddr *) &source_addr, source_addr_len, "SERVER ERROR receiving client_entries");
+		} else {	//Message correctly received
+			server_entries = realloc(server_entries, server_length + recv_entries_pkt.header.length);
+			memcpy(server_entries + server_length, &recv_entries_pkt.data, recv_entries_pkt.header.length);
+			server_length += recv_entries_pkt.header.length;
+		}
 
-        memcpy(&packet.data, entries + packet_number*sizeof(DIR_ENTRY), packet.header.length);
+		n_packets = recv_entries_pkt.header.total_size;
+		last_recv_packet = recv_entries_pkt.header.seqn;
+	} while(last_recv_packet < n_packets - 1);
 
-        n = send_packet(sock_sync, server_sync, packet);
-        if(n < 0){
-            printf ("Error request_sync send_packet: %s\n", strerror(errno));
-            return -1;
-        }
-    }
+	n_server_ent = server_length / sizeof(DIR_ENTRY);
+
+    compare_entry_diff(server_entries, entries, n_server_ent, n_entries, &list);
+
+    printf("\n\nLista de DOWNLOAD:\n");
+	for(i=0; i<list.n_downloads; i++)
+		printf("- %s\n", (char *)(list.list + i * MAX_NAME_LENGTH));
+
+	printf("Lista de UPLOAD:\n");
+	for(i=0; i<list.n_uploads; i++)
+		printf("- %s\n", (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
+
+	printf("\n");
 
     free(entries);
+    free(server_entries);
     return 0;
 }
 

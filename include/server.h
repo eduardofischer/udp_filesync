@@ -3,8 +3,6 @@
 
 #include "communication.h"
 
-#define MAX_NAME_LENGTH 50
-
 typedef struct client_info{
     char username[MAX_NAME_LENGTH];
     REMOTE_ADDR client_addr;
@@ -44,7 +42,7 @@ int new_client(CLIENT_INFO *client);
 
 int upload(char *filename, char *user_dir, int socket);
 
-int sync_user(int socket, char *user_dir);
+int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr);
 
 
 #endif

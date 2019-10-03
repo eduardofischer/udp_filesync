@@ -156,6 +156,62 @@ int get_dir_status(char *dir_path, DIR_ENTRY **entries){
     return i;
 }
 
+void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, int n_server_ent, int n_client_ent, SYNC_LIST *list){
+	char *downloadList = malloc(MAX_NAME_LENGTH);
+	char *uploadList = malloc(MAX_NAME_LENGTH);
+	int down_count = 0, up_count = 0, exists_in_client, exists_in_server;
+	int i, j;
+
+	for(i=0; i < n_server_ent; i++){
+		exists_in_client = 0;
+		for(j=0; j < n_client_ent; j++){
+			if(!strcmp(server_entries[i].name, client_entries[j].name)){
+				exists_in_client = 1;
+				if(server_entries[i].last_modified < client_entries[j].last_modified){
+					// Caso o arquivo no cliente seja mais recente, adiciona à lista de uploads
+					up_count++;
+					uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
+					strcpy((char*)(uploadList + (up_count - 1) * MAX_NAME_LENGTH), server_entries[i].name);
+				}
+			}
+		}
+		if(!exists_in_client){
+			// Caso o arquivo não exista do lado do cliente, adiciona à lista de downloads
+			down_count++;
+			downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
+			strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[i].name);
+		}
+	}
+
+	for(i=0; i < n_client_ent; i++){
+		exists_in_server = 0;
+		for(j=0; j < n_server_ent; j++){
+			if(!strcmp(server_entries[j].name, client_entries[i].name)){
+				exists_in_server = 1;
+				if(server_entries[j].last_modified > client_entries[i].last_modified){
+					// Caso o arquivo no servidor seja mais recente, adiciona à lista de downloads
+					down_count++;
+					downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
+					strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[j].name);
+				}
+			}
+		}
+		if(!exists_in_server){
+			// Caso o arquivonão exista no servidor, adiciona à lista de uploads
+			up_count++;
+			uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
+			strcpy((char*)(uploadList + (up_count - 1) * MAX_NAME_LENGTH), client_entries[i].name);
+		}
+	}
+
+	// Preenche a sctruct com a lista de sincronização
+	list->n_downloads = down_count;
+	list->n_uploads = up_count;
+	list->list = malloc((up_count + down_count) * MAX_NAME_LENGTH);
+	memcpy(list->list, downloadList, down_count * MAX_NAME_LENGTH);
+	memcpy(list->list + down_count * MAX_NAME_LENGTH, uploadList, up_count * MAX_NAME_LENGTH);
+}
+
 void print_dir_status(DIR_ENTRY **entries, int n){
     int i;
 

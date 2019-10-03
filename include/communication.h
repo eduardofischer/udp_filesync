@@ -54,6 +54,8 @@ typedef struct PacketHeader{
 
 #define DATA_LENGTH (PACKET_SIZE - sizeof(PACKET_HEADER))
 
+#define MAX_NAME_LENGTH 50
+
 /** Estrutura com as informações do servidor */
 typedef struct RemoteAddr{
     unsigned long ip; // load with inet_aton()
@@ -76,6 +78,13 @@ typedef struct server_ports{
     uint16_t port_sync;
 } SERVER_PORTS_FOR_CLIENT;
 
+/** Lista de sincronização */
+typedef struct sync_list{
+    int n_downloads;
+    int n_uploads;
+    char *list;
+} SYNC_LIST;
+
 /** Inicializa um socket UDP */
 int create_udp_socket();
 
@@ -92,7 +101,7 @@ uint16_t get_socket_port(int socket);
  **/ 
 int send_packet(int socket, REMOTE_ADDR addr, PACKET packet);
 
-int recv_packet(int socket, REMOTE_ADDR addr, PACKET *packet);
+int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet);
 
 /** Envia um pacote de ACK */
 int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);

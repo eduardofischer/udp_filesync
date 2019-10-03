@@ -95,7 +95,6 @@ void *thread_client_sync(void *thread_info){
 	PACKET msg;
 	COMMAND *cmd;
 	struct sockaddr_in cli_addr;
-	socklen_t clilen = sizeof(cli_addr);
 	int n, socket = info.sock_sync;
 
 	cli_addr.sin_family = AF_INET;
@@ -111,7 +110,7 @@ void *thread_client_sync(void *thread_info){
 	strcat(user_dir, "/");
 
     while(1){
-		n = recvfrom(socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
+		n = recv_packet(socket, &addr, &msg);
 
 		if (n < 0){
 			printf("ERROR recvfrom:  %s\n", strerror(errno));
@@ -122,12 +121,9 @@ void *thread_client_sync(void *thread_info){
 
         if(msg.header.type == CMD && (*cmd).code == SYNC_DIR){
 			printf("📝 [%s:%d] CMD: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, username);
-
-			ack(socket, (struct sockaddr *) &cli_addr, clilen);
-			sync_user(socket, user_dir);
+			sync_user(socket, user_dir, addr);
         }else
 			printf("✉ [%s:%d] WARNING: Message ignored by SYNC thread. Wrong type.\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
-		
     }  
 }
 
@@ -233,99 +229,34 @@ int upload(char *filename, char *user_dir, int socket){
 	}
 }
 
-int sync_user(int socket, char *user_dir){
+int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
-	DIR_ENTRY *client_entries = malloc(sizeof(DIR_ENTRY));
-	int n_server_ent, n_client_ent, client_length = 0;
-	int n_packets, n, last_recv_packet, i, j;
-	struct sockaddr_in source_addr;
-	socklen_t source_addr_len = sizeof(source_addr);
-	PACKET recv;
-	char *downloadList = malloc(MAX_NAME_LENGTH);
-	char *uploadList = malloc(MAX_NAME_LENGTH);
-	int down_count = 0, up_count = 0, exists_in_client, exists_in_server;
+	int n_server_ent;
+	int n_packets, n, packet_number = 0;
+	PACKET entries_pkt;
 
 	n_server_ent = get_dir_status(user_dir, &server_entries);
+	n_packets = ceil((n_server_ent * sizeof(DIR_ENTRY)) / (double) DATA_LENGTH);
 
-	do {
-		n = recvfrom(socket, (void*) &recv, PACKET_SIZE, 0, (struct sockaddr *) &source_addr, &source_addr_len);
-		if (n < 0){
-			fprintf(stderr, "ERROR receiving client_entries: %s\n", strerror(errno));
-			err(socket, (struct sockaddr *) &source_addr, source_addr_len, "SERVER ERROR receiving client_entries");
-		}
-		else {	//Message correctly received
-			ack(socket,(struct sockaddr *) &source_addr,source_addr_len);
-			client_entries = realloc(client_entries, client_length + recv.header.length);
-			memcpy(client_entries + client_length, &recv.data, recv.header.length);
-			client_length += recv.header.length;
-		}
+	while(packet_number < n_packets){
+        entries_pkt.header.type = DATA;
+        entries_pkt.header.seqn = packet_number;
+        entries_pkt.header.total_size = n_packets;     
+        if(packet_number == n_packets - 1)
+            entries_pkt.header.length = (n_server_ent * sizeof(DIR_ENTRY)) % DATA_LENGTH;
+        else
+            entries_pkt.header.length = DATA_LENGTH;
 
-		n_packets = recv.header.total_size;
-		last_recv_packet = recv.header.seqn;
-	} while(last_recv_packet < n_packets - 1);
+        memcpy(&entries_pkt.data, server_entries + packet_number*sizeof(DIR_ENTRY), entries_pkt.header.length);
 
-	n_client_ent = client_length / sizeof(DIR_ENTRY);
-
-	for(i=0; i < n_server_ent; i++){
-		exists_in_client = 0;
-		for(j=0; j < n_client_ent; j++){
-			if(!strcmp(server_entries[i].name, client_entries[j].name)){
-				exists_in_client = 1;
-				if(server_entries[i].last_modified < client_entries[j].last_modified){
-					// Caso o arquivo no cliente seja mais recente, adiciona à lista de uploads
-					up_count++;
-					uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
-					strcpy((char*)(uploadList + (up_count - 1) * MAX_NAME_LENGTH), server_entries[i].name);
-				}
-			}
-		}
-		if(!exists_in_client){
-			// Caso o arquivo não exista do lado do cliente, adiciona à lista de downloads
-			down_count++;
-			downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
-			strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[i].name);
-		}
-	}
-
-	for(i=0; i < n_client_ent; i++){
-		exists_in_server = 0;
-		for(j=0; j < n_server_ent; j++){
-			if(!strcmp(server_entries[j].name, client_entries[i].name)){
-				exists_in_server = 1;
-				if(server_entries[j].last_modified > client_entries[i].last_modified){
-					// Caso o arquivo no servidor seja mais recente, adiciona à lista de downloads
-					down_count++;
-					downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
-					strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[j].name);
-				}
-			}
-		}
-		if(!exists_in_server){
-			// Caso o arquivonão exista no servidor, adiciona à lista de uploads
-			up_count++;
-			uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
-			strcpy((char*)(uploadList + (up_count - 1) * MAX_NAME_LENGTH), client_entries[i].name);
-		}
-	}
-
-	printf("Entradas no servidor:\n");
-	print_dir_status(&server_entries, n_server_ent);
-
-	printf("Entradas no Cliente:\n");
-	print_dir_status(&client_entries, n_client_ent);
-
-	printf("Lista de UPLOAD:\n");
-	for(i=0; i<up_count; i++)
-		printf("- %s\n", (char *)(uploadList + i*MAX_NAME_LENGTH));
-
-	printf("\nLista de DOWNLOAD:\n");
-	for(i=0; i<down_count; i++)
-		printf("- %s\n", (char *)(downloadList + i*MAX_NAME_LENGTH));
-
-	printf("\n");
-
+        n = send_packet(socket, client_addr, entries_pkt);
+        if(n < 0){
+            printf ("Error request_sync send_packet: %s\n", strerror(errno));
+            return -1;
+        }
+    }
+	
 	free(server_entries);
-	free(client_entries);
 
 	return 0;
 }

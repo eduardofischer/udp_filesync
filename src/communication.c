@@ -76,13 +76,18 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet){
     return ntohs(new_addr.sin_port);
 }
 
-int recv_packet(int socket, REMOTE_ADDR addr, PACKET *packet){
+int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet){
     struct sockaddr_in new_addr;
     socklen_t addr_len = sizeof(new_addr);
     int n;
 
     n = recvfrom(socket, packet, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
     ack(socket, (struct sockaddr *)&new_addr, addr_len);
+
+    if(addr != NULL){
+        addr->ip = new_addr.sin_addr.s_addr;
+        addr->port = ntohs(new_addr.sin_port);
+    }
 
     return n;
 }

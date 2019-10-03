@@ -7,9 +7,10 @@
 #include "../include/communication.h"
 #include "../include/filesystem.h"
     
-int socketfd;
+int sock_cmd, sock_sync;
 char username[64];
-REMOTE_ADDR server;
+REMOTE_ADDR server_cmd;
+REMOTE_ADDR server_sync;
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath){
@@ -22,7 +23,7 @@ int uploadFile(char* filePath){
     socketDataTransfer = create_udp_socket();
 
     if (socketDataTransfer != ERR_SOCKET){
-        response = send_command(socketDataTransfer, server, UPLOAD, filePath);
+        response = send_command(socketDataTransfer, server_cmd, UPLOAD, filePath);
         if(response >= 0){
              sourceFile = fopen(filePath,"rb");
              if(isOpened(sourceFile)){       
@@ -40,7 +41,7 @@ int uploadFile(char* filePath){
                     dataToTransfer.header.length = currentPacketLenght;
                             
                     //Enquanto o servidor não recebeu o pacote, tenta re-enviar pra ele
-                    while(send_packet(socketDataTransfer,server,dataToTransfer) < 0);
+                    while(send_packet(socketDataTransfer,server_cmd,dataToTransfer) < 0);
                     
                     //Tamanho restante a ser transmitido
                     sourceFileSizeRemaining -= currentPacketLenght;
@@ -93,8 +94,40 @@ int getSyncDir(){
 
 /** Fecha a sessão com o servidor **/
 int exit_client(){
-    return send_command(socketfd, server, EXIT, NULL);
+    return send_command(sock_cmd, server_cmd, EXIT, NULL);
 };
+
+/** 
+ *  Inicia a comunicação de um cliente com o servidor 
+ *  Retorna a porta com a qual o cliente deve se comunicar
+ *  ou -1 em caso de erro
+*/
+int hello(char *username){
+    PACKET packet, response;
+    int n;
+
+    packet.header.type = HELLO;
+    strcpy((char *)&(packet.data), username);
+
+    n = send_packet(sock_cmd, server_cmd, packet);
+
+    if (n < 0){
+        fprintf(stderr, "ERROR! HELLO failed\n");
+        return -1;;
+    }
+
+    if(recv_packet(sock_cmd, server_cmd, &response) < 0){
+        printf("ERROR recv_packet\n");
+        return -1;
+    }
+    
+    if(response.header.type == HELLO){
+        server_cmd.port = ((SERVER_PORTS_FOR_CLIENT *)&response.data)->port_cmd;
+        server_sync.port = ((SERVER_PORTS_FOR_CLIENT *)&response.data)->port_sync;
+    }
+
+    return 0;
+}
 
 void print_cli_options(){
     printf("Available commands:\n\n");
@@ -167,7 +200,10 @@ int request_sync(){
     n_entries = get_dir_status(LOCAL_DIR, &entries);
     n_packets = ceil((n_entries * sizeof(DIR_ENTRY)) / (double) DATA_LENGTH);
 
-    send_command(socketfd, server, SYNC_DIR, NULL);
+    if(send_command(sock_sync, server_sync, SYNC_DIR, NULL) < 0){
+        printf("ERROR sending sync cmd: %s\n", strerror(errno));
+        return -1;
+    }
 
     while(packet_number < n_packets){
         packet.header.type = DATA;
@@ -180,9 +216,9 @@ int request_sync(){
 
         memcpy(&packet.data, entries + packet_number*sizeof(DIR_ENTRY), packet.header.length);
 
-        n = send_packet(socketfd, server, packet);
+        n = send_packet(sock_sync, server_sync, packet);
         if(n < 0){
-            printf ("Error send_packet: %s\n", strerror(errno));
+            printf ("Error request_sync send_packet: %s\n", strerror(errno));
             return -1;
         }
     }
@@ -192,7 +228,8 @@ int request_sync(){
 }
 
 void *sync_files(){
-    request_sync();
+    if(request_sync() < 0)
+        printf ("Error sync_files request_sync: %s\n", strerror(errno));
 
     while(1){
         // use inotify to request_sync when a file changes
@@ -201,7 +238,7 @@ void *sync_files(){
 
 int main(int argc, char const *argv[]){
     struct hostent *host;
-    pthread_t cli_thread;
+    pthread_t sync_thread;
 
     if(argc < 3){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");
@@ -218,19 +255,27 @@ int main(int argc, char const *argv[]){
 		exit(0);
 
     strcpy((char *) username, argv[1]);
-    server.ip = *(unsigned long *) host->h_addr;
-    server.port = PORT;
+    server_cmd.ip = *(unsigned long *) host->h_addr;
+    server_sync.ip = *(unsigned long *) host->h_addr;
+    server_cmd.port = PORT;
 
-    if((socketfd = create_udp_socket()) < 0){
+    if((sock_cmd = create_udp_socket()) < 0){
         fprintf(stderr,"ERROR opening socket\n");
         exit(0);
     }
 
-    // Conecta com o servidor e atualiza a porta
-    server.port = hello(socketfd, server, username);
-    printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server.ip), server.port);
+    if((sock_sync = create_udp_socket()) < 0){
+        fprintf(stderr,"ERROR opening socket\n");
+        exit(0);
+    }
 
-    pthread_create(&cli_thread, NULL, sync_files, NULL);
+    // Conecta com o servidor e atualiza as portas
+    if(hello(username) < 0)
+        fprintf(stderr,"ERROR connecting to server\n");
+
+    printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server_cmd.ip), server_cmd.port);
+
+    pthread_create(&sync_thread, NULL, sync_files, NULL);
 
     run_cli();
     

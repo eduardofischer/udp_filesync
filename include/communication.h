@@ -71,11 +71,18 @@ typedef struct command{
     char argument[DATA_LENGTH - 1]; // Espaço restante do datagrama é preenchido com dados
 } COMMAND;
 
+typedef struct server_ports{
+    uint16_t port_cmd;
+    uint16_t port_sync;
+} SERVER_PORTS_FOR_CLIENT;
+
 /** Inicializa um socket UDP */
 int create_udp_socket();
 
 /** Vincula um socket com um IP e uma porta */
 int bind_udp_socket(int socket, char *ip, unsigned int port);
+
+uint16_t get_socket_port(int socket);
 
 /** 
  *  Envia uma mensagem e espera o ACK do destino
@@ -85,6 +92,8 @@ int bind_udp_socket(int socket, char *ip, unsigned int port);
  **/ 
 int send_packet(int socket, REMOTE_ADDR addr, PACKET packet);
 
+int recv_packet(int socket, REMOTE_ADDR addr, PACKET *packet);
+
 /** Envia um pacote de ACK */
 int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);
 
@@ -92,13 +101,6 @@ int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);
  *  Envia um pacote de ERR
  * */
 int err(int socket, struct sockaddr *cli_addr, socklen_t clilen, char *err_msg);
-
-/** 
- *  Inicia a comunicação de um cliente com o servidor 
- *  Retorna a porta com a qual o cliente deve se comunicar
- *  ou -1 em caso de erro
-*/
-int hello(int socket, REMOTE_ADDR addr, char *username);
 
 /** 
  *  Envia um comando genérico ao servidor e aguarda pelo ack do mesmo 

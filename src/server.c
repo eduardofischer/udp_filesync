@@ -4,49 +4,41 @@
 #include "../include/communication.h"
 #include "../include/filesystem.h"
 
+int listen_socket;
 
 /** 
  *  Escuta um cliente em um determinado socket 
  * */
-void *listen_to_client(void *client_info){
-    int new_socket, n;
-    PACKET msg;
-    REMOTE_ADDR addr = ((CLIENT_INFO *) client_info)->client_addr;
+void *thread_client_cmd(void *thread_info){
 	char username[MAX_NAME_LENGTH];
-    struct sockaddr_in cli_addr;
-	socklen_t clilen = sizeof(cli_addr);
-    COMMAND *cmd;
 	char user_dir[MAX_PATH_LENGTH];
+	THREAD_INFO info = *((THREAD_INFO *) thread_info);
+	REMOTE_ADDR addr = info.client.client_addr;
+	PACKET msg;
+	COMMAND *cmd;
+	struct sockaddr_in cli_addr;
+	socklen_t clilen = sizeof(cli_addr);
+	int n, socket = info.sock_cmd;
 
-	strcpy(username, ((CLIENT_INFO*) client_info)->username);
+	cli_addr.sin_family = AF_INET;
+    cli_addr.sin_port = htons(addr.port);
+    cli_addr.sin_addr.s_addr = addr.ip;
+    bzero(&(cli_addr.sin_zero), 8);
+
+	strcpy(username, info.client.username);
 
 	// Path da pasta do usuário no servidor
 	strcpy(user_dir, SERVER_DIR);	
 	strcat(user_dir, username);
 	strcat(user_dir, "/");
 
-    new_socket = create_udp_socket();
-
-    if(new_socket < 0){
-        printf("ERROR creating new socket\n");
-        exit(0);
-    }
-
-    cli_addr.sin_family = AF_INET;
-    cli_addr.sin_port = htons(addr.port);
-    cli_addr.sin_addr.s_addr = addr.ip;
-    bzero(&(cli_addr.sin_zero), 8);
-
-    n = ack(new_socket, (struct sockaddr *)&cli_addr, sizeof(struct sockaddr_in));
-    if (n < 0){
-        printf("Error ack %d/n", errno);
-    }
-
     while(1){
-		n = recvfrom(new_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
+		n = recvfrom(socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
 
-		if (n < 0) 
-			printf("ERROR on recvfrom");
+		if (n < 0){
+			printf("ERROR recvfrom:  %s\n", strerror(errno));
+			pthread_exit(NULL);
+		}
 
         if(msg.header.type == CMD){
             cmd = (COMMAND *) &msg.data;
@@ -55,62 +47,138 @@ void *listen_to_client(void *client_info){
                 case UPLOAD:
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD: UPLOAD - Uploaded %s to %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument, username);
-                        ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-						upload(cmd->argument, user_dir, new_socket);
+                        ack(socket, (struct sockaddr *) &cli_addr, clilen);
+						upload(cmd->argument, user_dir, socket);
                     }else{
-                        err(new_socket, (struct sockaddr *) &cli_addr, clilen, "UPLOAD missing argument");      
+                        err(socket, (struct sockaddr *) &cli_addr, clilen, "UPLOAD missing argument");      
                     }
                     break;
                 case DOWNLOAD:
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
-                        ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+                        ack(socket, (struct sockaddr *) &cli_addr, clilen);
                     }else
-                        err(new_socket, (struct sockaddr *) &cli_addr, clilen, "DOWNLOAD missing argument"); 
+                        err(socket, (struct sockaddr *) &cli_addr, clilen, "DOWNLOAD missing argument"); 
                     break;
                 case DELETE:
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
-                        ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+                        ack(socket, (struct sockaddr *) &cli_addr, clilen);
                     }else
-                        err(new_socket, (struct sockaddr *) &cli_addr, clilen, "DELETE missing argument");
+                        err(socket, (struct sockaddr *) &cli_addr, clilen, "DELETE missing argument");
                     
                     break;
                 case LST_SV:
                     printf("📝 [%s:%d] CMD: LST_SV\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
-                    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-                    break;
-                case SYNC_DIR:
-                    printf("📝 [%s:%d] CMD: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, username);
-                    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
-					sync_user(new_socket, user_dir);
+                    ack(socket, (struct sockaddr *) &cli_addr, clilen);
                     break;
                 case EXIT:
                     printf("📝 [%s:%d] CMD: EXIT\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
-                    ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+                    ack(socket, (struct sockaddr *) &cli_addr, clilen);
 					pthread_exit(NULL);
                     break;
                 default:
                     fprintf(stderr, "❌ ERROR Invalid Command\n");
-                    err(new_socket, (struct sockaddr *) &cli_addr, clilen, "Invalid command");
+                    err(socket, (struct sockaddr *) &cli_addr, clilen, "Invalid command");
             }
-        }else if(msg.header.type == DATA)
-			printf("✉ [%s:%d] DATA: %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port,(char *) &(msg.data));
+        }else
+			printf("✉ [%s:%d] WARNING: Message ignored by CMD thread. Wrong type.\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
 		
     }
 }
 
-/** 
- *  Cria um novo socket em uma nova thread
- *  Retorna a porta do novo socket ou -1 em caso de erro
- */
-int new_socket(CLIENT_INFO *client){
-    pthread_t thr;       /* thread descriptor */
+void *thread_client_sync(void *thread_info){
+	char username[MAX_NAME_LENGTH];
+	char user_dir[MAX_PATH_LENGTH];
+	THREAD_INFO info = *((THREAD_INFO *) thread_info);
+	REMOTE_ADDR addr = info.client.client_addr;
+	PACKET msg;
+	COMMAND *cmd;
+	struct sockaddr_in cli_addr;
+	socklen_t clilen = sizeof(cli_addr);
+	int n, socket = info.sock_sync;
 
-    return pthread_create(&thr, NULL, listen_to_client, client);
+	cli_addr.sin_family = AF_INET;
+    cli_addr.sin_port = htons(addr.port);
+    cli_addr.sin_addr.s_addr = addr.ip;
+    bzero(&(cli_addr.sin_zero), 8);
+
+	strcpy(username, info.client.username);
+
+	// Path da pasta do usuário no servidor
+	strcpy(user_dir, SERVER_DIR);	
+	strcat(user_dir, username);
+	strcat(user_dir, "/");
+
+    while(1){
+		n = recvfrom(socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
+
+		if (n < 0){
+			printf("ERROR recvfrom:  %s\n", strerror(errno));
+			pthread_exit(NULL);
+		}
+
+		cmd = (COMMAND *) &msg.data;
+
+        if(msg.header.type == CMD && (*cmd).code == SYNC_DIR){
+			printf("📝 [%s:%d] CMD: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, username);
+
+			ack(socket, (struct sockaddr *) &cli_addr, clilen);
+			sync_user(socket, user_dir);
+        }else
+			printf("✉ [%s:%d] WARNING: Message ignored by SYNC thread. Wrong type.\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
+		
+    }  
 }
 
-#define MAX_PATH_LENGTH 255
+int hello(CONNECTION_INFO conn){
+	PACKET packet;
+
+	packet.header.type = HELLO;
+	memcpy(&packet.data, &conn.ports, sizeof(SERVER_PORTS_FOR_CLIENT));
+
+	return send_packet(listen_socket, conn.client.client_addr, packet);
+}
+
+int new_client(CLIENT_INFO *client){
+    pthread_t thr_cmd, thr_sync;
+	int sock_cmd, sock_sync;
+	THREAD_INFO thread_info;
+	CONNECTION_INFO conn_info;
+
+    sock_cmd = create_udp_socket();
+    if(sock_cmd < 0){
+        printf("ERROR creating new socket\n");
+        return -1;
+    }
+	bind_udp_socket(sock_cmd, INADDR_ANY, 0);
+
+	sock_sync = create_udp_socket();
+    if(sock_sync < 0){
+        printf("ERROR creating new socket\n");
+        return -1;
+    }
+	bind_udp_socket(sock_sync, INADDR_ANY, 0);
+
+
+	thread_info.client = *client;
+	thread_info.sock_cmd = sock_cmd;
+	thread_info.sock_sync = sock_sync;
+
+	conn_info.client = *client;
+	conn_info.ports.port_cmd = get_socket_port(sock_cmd);
+	conn_info.ports.port_sync = get_socket_port(sock_sync);
+
+	pthread_create(&thr_cmd, NULL, thread_client_cmd, &thread_info);
+	pthread_create(&thr_sync, NULL, thread_client_sync, &thread_info);
+
+	if(hello(conn_info) < 0){
+		printf("ERROR responding HELLO message\n");
+		return -1;
+	}
+
+    return 0;
+}
 
 int upload(char *filename, char *user_dir, int socket){
 	FILE *new_file;
@@ -208,7 +276,7 @@ int sync_user(int socket, char *user_dir){
 }
 
 int main(int argc, char const *argv[]){
-	int listen_socket, new_sock, n;
+	int n;
 	struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
 	PACKET msg;
@@ -228,27 +296,36 @@ int main(int argc, char const *argv[]){
 		n = recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
 		
 		if (n < 0) 
-			printf("ERROR on recvfrom");
+			printf("ERROR on recvfrom\n");
 
 		client_addr.ip = cli_addr.sin_addr.s_addr;
 		client_addr.port = ntohs(cli_addr.sin_port);
 
-		//Seta informações de client_info. WARNING: Caso seja feito alteração no pacote enviado, deve-se alterar
-		//para que  o msg.data.data do memcpy seja só o username.
-		client_info.client_addr = client_addr;
-		strcpy(client_info.username, (char *) msg.data);
+		if(msg.header.type == HELLO){
+			//Seta informações de client_info. WARNING: Caso seja feito alteração no pacote enviado, deve-se alterar
+			//para que  o msg.data.data do memcpy seja só o username.
+			client_info.client_addr = client_addr;
+			strcpy(client_info.username, (char *) msg.data);
 
-		new_sock = new_socket(&client_info);
+			n = ack(listen_socket, (struct sockaddr *)&cli_addr, clilen);
+			if(n < 0){
+				printf("ERROR ack at HELLO\n");
+				exit(0);
+			}
 
-		if(new_sock < 0){
-			printf("ERROR creating socket\n");
-			exit(0);
-		}
+			n = new_client(&client_info);
+			if(n < 0){
+				printf("ERROR creating client sockets\n");
+				exit(0);
+			}
 
-		if (create_user_dir((char *) &(msg.data)) < 0) 
-			exit(0);
-		
-		printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port,(char *) &(msg.data));	
+			if (create_user_dir((char *) &(msg.data)) < 0) 
+				exit(0);
+			
+			printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port,(char *) &(msg.data));
+		} else {
+			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port);
+		}				
 	}
 
     return 0;

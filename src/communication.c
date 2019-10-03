@@ -28,11 +28,20 @@ int bind_udp_socket(int socket, char *ip, unsigned int port){
 
     if (bind(socket, (struct sockaddr *)&addr, sizeof(struct sockaddr)) < 0)
     {
-        printf("ERROR on binding\n");
+        printf("ERROR on binding: %s\n", strerror(errno));
         return -1;
     }
 
     return socket;
+}
+
+uint16_t get_socket_port(int socket){
+    struct sockaddr_in addr;
+    socklen_t addr_len = sizeof(addr);
+
+    getsockname(socket, (struct sockaddr *) &addr, &addr_len);
+
+    return ntohs(addr.sin_port);
 }
 
 /** 
@@ -53,18 +62,29 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet){
     bzero(&(dest_addr.sin_zero), 8);
 
     n = sendto(socket, &packet, PACKET_SIZE, 0, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in));
-    if (n < 0)
-        printf("ERROR sendto %d\n", errno);
+    if (n < 0){
+        printf("ERROR send_packet sendto: %s\n", strerror(errno));
+        return -1;
+    }
 
     n = recvfrom(socket, &response, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
-
-    if (n < 0 || response.header.type != ACK)
-    {
-        printf("ERROR recvfrom %d\n", errno);
+    if (n < 0 || response.header.type != ACK){
+        printf("ERROR send_packet recvfrom %s\n", strerror(errno));
         return -1;
     }
 
     return ntohs(new_addr.sin_port);
+}
+
+int recv_packet(int socket, REMOTE_ADDR addr, PACKET *packet){
+    struct sockaddr_in new_addr;
+    socklen_t addr_len = sizeof(new_addr);
+    int n;
+
+    n = recvfrom(socket, packet, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
+    ack(socket, (struct sockaddr *)&new_addr, addr_len);
+
+    return n;
 }
 
 /** 
@@ -93,29 +113,6 @@ int err(int socket, struct sockaddr *cli_addr, socklen_t clilen, char *err_msg){
 
     return n;
 }
-
-/** 
- *  Inicia a comunicação de um cliente com o servidor 
- *  Retorna a porta com a qual o cliente deve se comunicar
- *  ou -1 em caso de erro
-*/
-int hello(int socket, REMOTE_ADDR addr, char *username){
-    PACKET packet;
-    int new_port;
-
-    packet.header.type = HELLO;
-    strcpy((char *)&(packet.data), username);
-
-    new_port = send_packet(socket, addr, packet);
-
-    if (new_port < 0){
-        fprintf(stderr, "ERROR! Login failed\n");
-        exit(0);
-    }
-
-    return new_port;
-}
-
 
 /** 
  *  Envia um comando genérico ao servidor e aguarda pelo ack do mesmo 

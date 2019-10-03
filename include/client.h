@@ -35,4 +35,11 @@ void run_cli();
 /** Sincroniza os arquivos com o servidor */
 void *sync_files();
 
+/** 
+ *  Inicia a comunicação de um cliente com o servidor 
+ *  Retorna a porta com a qual o cliente deve se comunicar
+ *  ou -1 em caso de erro
+*/
+int hello(char *username);
+
 #endif

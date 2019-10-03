@@ -84,6 +84,10 @@ void *listen_to_client(void *client_info){
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
                         ack(new_socket, (struct sockaddr *) &cli_addr, clilen);
+						char file_name[FILE_NAME_SIZE];
+						strcpy(file_name, cmd->argument); 
+						delete(file_name, storage_client);
+						break;
                     }else
                         err(new_socket, (struct sockaddr *) &cli_addr, clilen, "DELETE missing argument");
                     
@@ -189,6 +193,18 @@ int upload(FILE_INFO file_info, char *archive_file, int dataSocket){
 	else{
 		printf("Erro ao criar arquivo em função de upload, tentou-se criar o arquivo: %s", full_archive_path);
 		return ERR_OPEN_FILE;
+	}
+}
+
+int delete(char *file_name, char *client_folder_path){
+	strcat(client_folder_path, "/");
+	char *target = strcat(client_folder_path, file_name);
+	if(remove(target) == 0){
+		return SUCCESS;
+	}
+	else{
+		printf("\nError deleting file.\n");
+		return -1;
 	}
 }
 

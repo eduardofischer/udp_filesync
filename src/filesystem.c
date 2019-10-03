@@ -82,6 +82,11 @@ int isOpened(FILE *sourceFile){
 
 int fileSizeInPackets(int fileSize){
     int totalPackets;
+
+	if (fileSize == 0){
+		return 1;
+	}
+
     //O tamanho do arquivo em pacotes é acrescido de um pacote caso haja resto.
     totalPackets = (fileSize % DATA_LENGTH) == 0? (fileSize / DATA_LENGTH) : (fileSize / DATA_LENGTH) + 1;
     return totalPackets;

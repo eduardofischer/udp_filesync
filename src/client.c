@@ -24,7 +24,7 @@ int uploadFile(char* filePath){
     }
 
     //Caso nao exista retorna erro
-     printf("Ψ༼ຈل͜ຈ༽Ψ Satan says that the file doesn't exists.  (Typo?) Ψ༼ຈل͜ຈ༽Ψ");
+     printf("Ψ༼ຈل͜ຈ༽Ψ Satan says that the file doesn't exist.  (Typo?) Ψ༼ຈل͜ຈ༽Ψ");
     return -1;
 }
 

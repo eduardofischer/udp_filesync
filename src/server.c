@@ -197,8 +197,10 @@ int upload(FILE_INFO file_info, char *archive_file, int dataSocket){
 }
 
 int delete(char *file_name, char *client_folder_path){
-	strcat(client_folder_path, "/");
-	char *target = strcat(client_folder_path, file_name);
+	char private_path_copy[FILE_NAME_SIZE];
+	strcpy(private_path_copy, client_folder_path);
+	strcat(private_path_copy, "/");
+	char *target = strcat(private_path_copy, file_name);
 	if(remove(target) == 0){
 		return SUCCESS;
 	}

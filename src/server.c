@@ -203,6 +203,8 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 
 	n_server_ent = get_dir_status(user_dir, &server_entries);
 	n_packets = ceil((n_server_ent * sizeof(DIR_ENTRY)) / (double) DATA_LENGTH);
+	printf("%d - n_server_entries", n_server_ent);
+	printf("%d - n_packets\n", n_packets);
 
 	while(packet_number < n_packets){
         entries_pkt.header.type = DATA;
@@ -213,9 +215,11 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
         else
             entries_pkt.header.length = DATA_LENGTH;
 
+		int entries_in_a_packet = ceil(entries_pkt.header.length / sizeof(DIR_ENTRY));
+
 		printf("Imprime aqui\n");
-        memcpy(&entries_pkt.data, server_entries + packet_number*DATA_LENGTH, entries_pkt.header.length);
-		printf("Mas aqui não\n");
+        memcpy(&entries_pkt.data, server_entries + packet_number*entries_in_a_packet, entries_pkt.header.length);
+		printf("Mas aqui nãoooooo\n");
 
 		packet_number++;
         n = send_packet(socket, client_addr, entries_pkt);

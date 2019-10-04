@@ -230,10 +230,6 @@ int request_sync(){
 			fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
 		} else {	//Message correctly received
 			server_entries = realloc(server_entries, server_length + recv_entries_pkt.header.length + 1);
-            printf("Blob Length: %d\n", recv_entries_pkt.header.length);
-            printf("Realloc new size: %d\n", server_length + recv_entries_pkt.header.length);
-            printf("memcpy size: %d\n", recv_entries_pkt.header.length);
-            printf("memcpy pos: %d\n", server_length);
 			memcpy((char*)server_entries + server_length, recv_entries_pkt.data, recv_entries_pkt.header.length);
             server_length += recv_entries_pkt.header.length;
 		}

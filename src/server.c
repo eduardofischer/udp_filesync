@@ -115,6 +115,7 @@ void *thread_client_sync(void *thread_info){
 				case SYNC_DIR:
 					printf("📝 [%s:%d] SYNC: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username);
 					sync_user(socket, user_dir, addr);
+					break;
 				case UPLOAD:
 					file_info = *((FILE_INFO*)cmd->argument);
                     printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, file_info.filename);
@@ -203,8 +204,6 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 
 	n_server_ent = get_dir_status(user_dir, &server_entries);
 	n_packets = (n_server_ent * sizeof(DIR_ENTRY)) % DATA_LENGTH ? ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH) + 1 : ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH);
-	printf("%d - n_server_entries", n_server_ent);
-	printf("%d - n_packets\n", n_packets);
 
 	while(packet_number < n_packets){
         entries_pkt.header.type = DATA;
@@ -215,16 +214,8 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
         else
             entries_pkt.header.length = DATA_LENGTH;
 
-		// int entries_in_a_packet = floor(entries_pkt.header.length / sizeof(DIR_ENTRY));
-
-		printf("Imprime aqui\n");
-		
-		
-        memcpy(&entries_pkt.data, ((char*) server_entries) + (packet_number*DATA_LENGTH), entries_pkt.header.length);
-		printf("Mas aqui nãoooooo\n");
-
+		memcpy(&entries_pkt.data, ((char*) server_entries) + (packet_number*DATA_LENGTH), entries_pkt.header.length);
 		packet_number++;
-		printf("pointer offset %i", server_entries + packet_number*DATA_LENGTH);
         n = send_packet(socket, client_addr, entries_pkt);
 
         if(n < 0){

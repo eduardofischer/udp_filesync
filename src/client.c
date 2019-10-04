@@ -101,7 +101,7 @@ int listServer(){
 		}
 		n_packets = recv_entries_pkt.header.total_size;
 		last_recv_packet = recv_entries_pkt.header.seqn;
-	} while(last_recv_packet < n_packets - 1);
+	} while(last_recv_packet < n_packets);
 
     n_server_ent = server_length / sizeof(DIR_ENTRY);
 

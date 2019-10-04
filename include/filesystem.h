@@ -1,15 +1,15 @@
-#ifndef __filesystem__
-#define __filesystem__
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
+#include <sys/time.h>
 #include <string.h>
 #include <time.h>
 #include "../include/communication.h"
+
+#define FILE_NAME_SIZE 255
 
 #define LOCAL_DIR "./sync_dir/"
 #define SERVER_DIR "./user_data/"
@@ -39,11 +39,6 @@ int isOpened(FILE *sourceFile);
 /** Determina o tamanho do arquivo em pacotes. **/
 int fileSizeInPackets(int fileSize);
 
-/**
- *  Escreve o pacote num arquivo, lidando com os ofsets dentro do arquivo. 
- *  Deixa o ponteiro no ponto onde estava antes.
-*/
-int write_packet_to_the_file(PACKET *packet, FILE *file);
 
 /**  Lê o diretório e preenche _entries_ com informações sobre os arquivos
  *  no diretório.
@@ -56,6 +51,6 @@ void print_dir_status(DIR_ENTRY **entries, int n);
 
 void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, int n_server_ent, int n_client_ent, SYNC_LIST *list);
 
+char **splitPath(char *name, int *size); 
 
 
-#endif

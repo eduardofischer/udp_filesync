@@ -14,59 +14,67 @@ REMOTE_ADDR server_sync;
 
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath){
+    FILE *file_to_upload;
+
+    //Para testar se o arquivo existe
+    file_to_upload = fopen(filePath,"rb");
+
+    //Caso exista, fecha e chama send_file
+    if(file_to_upload != NULL){
+        fclose(file_to_upload);
+        return send_file(server_cmd,filePath);
+    }
+
+    //Caso nao exista retorna erro
+     printf("Ψ༼ຈل͜ຈ༽Ψ Satan says that the file doesn't exist.  (Typo?) Ψ༼ຈل͜ຈ༽Ψ");
+    return -1;
+}
+
+/** Faz o download de um arquivo do servidor **/
+int downloadFile(int socket,char *filePath){
+    int n;
+    PACKET msg;
+    struct sockaddr_in cli_addr;
+	socklen_t clilen = sizeof(cli_addr);
+    FILE_INFO file_info;
+    COMMAND *cmd;
+
+    //Envia um comando de download
+    send_command(socket,server_cmd,DOWNLOAD,filePath);
+    //Espera pelas mensagens contendo as informações do arquivo (tempos)
+    do{
+        n = recvfrom(socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
+    }while(n < 0);
+    ack(socket,(struct sockaddr*)&cli_addr, clilen);
+    //Após recebida a mensagem acessa as informações do arquivo
+    cmd = (COMMAND *) &msg.data;
+    file_info = *((FILE_INFO*)cmd->argument);
+    printf("%s",file_info.filename);
+    //Recebe o arquivo informado em file_info.
+    return receive_file(file_info, ".", socket);
+}
+
+/** Exclui um arquivo de sync_dir **/
+int deleteFile(char* fileName){
     int socketDataTransfer;
-    int response, i;
-    FILE *sourceFile;
-    PACKET dataToTransfer;
-    char buffer[DATA_LENGTH];
+    int response;
 
     socketDataTransfer = create_udp_socket();
 
     if (socketDataTransfer != ERR_SOCKET){
-        response = send_command(socketDataTransfer, server_cmd, UPLOAD, filePath);
+        response = send_command(socketDataTransfer, server_cmd, DELETE, fileName);
+        
         if(response >= 0){
-             sourceFile = fopen(filePath,"rb");
-             if(isOpened(sourceFile)){       
-                int sourceFileSize = fileSize(sourceFile); 
-                int sourceFileSizeRemaining = sourceFileSize;
-                int currentPacketLenght;
-                init_data_packet_header(&dataToTransfer,(u_int32_t)fileSizeInPackets(sourceFileSize));
-              
-                for(i = 0; i < fileSizeInPackets(sourceFileSize); i++){
-                    //Preenchimento do pacote: dados e cabeçalho
-                    currentPacketLenght = (sourceFileSizeRemaining / DATA_LENGTH) >= 1? DATA_LENGTH : sourceFileSizeRemaining % DATA_LENGTH;
-                    fread(buffer,sizeof(char),DATA_LENGTH,sourceFile);
-                    memcpy(dataToTransfer.data,buffer,currentPacketLenght);
-                    dataToTransfer.header.seqn = i;
-                    dataToTransfer.header.length = currentPacketLenght;
-                            
-                    //Enquanto o servidor não recebeu o pacote, tenta re-enviar pra ele
-                    while(send_packet(socketDataTransfer,server_cmd,dataToTransfer) < 0);
-                    
-                    //Tamanho restante a ser transmitido
-                    sourceFileSizeRemaining -= currentPacketLenght;
-                }
-                return SUCCESS;
-             }
-             return ERR_OPEN_FILE;
-        } 
+            return SUCCESS;
+        }
         else{
             printf("Server didn't return ack (busy?)\n");
             return ERR_ACK;
         }
     }
-
-    return ERR_SOCKET; 
-};
-
-/** Faz o download de um arquivo do servidor **/
-int downloadFile(char *fileName){
-    return -1;
-};
-
-/** Exclui um arquivo de sync_dir **/
-int deleteFile(char* fileName){
-    return -1;
+    else{
+        return ERR_SOCKET; 
+    };
 };
 
 /** Lista os arquivos salvos no servidor associados ao usuário **/
@@ -140,7 +148,7 @@ void print_cli_options(){
     printf("\t🏃  exit\n\n");
 }
 
-void run_cli(){
+void run_cli(int socket){
     print_cli_options();
 
     char user_input[COMMAND_SIZE];
@@ -154,13 +162,19 @@ void run_cli(){
 
         user_cmd = strtok(user_input, " ");
         user_arg = strtok(NULL, " \n");
+
+        if(user_arg != NULL && strlen(user_arg) > FILE_NAME_SIZE){
+            printf("Filename too long, max is 255 characters. Please enter your command again.");
+            run_cli(socket);
+            exit(0);
+        }
         
         if (!strcmp(user_cmd,"upload")) {
             if (uploadFile(user_arg) == -1){
                 printf("Error uploading file.\n");
             }
         }else if(!strcmp(user_cmd, "download")) {
-           if (downloadFile(user_arg) == -1){
+           if (downloadFile(socket,user_arg) == -1){
                 printf("Error downloading file.\n");
             }
         }else if(!strcmp(user_cmd, "delete")) {
@@ -292,7 +306,7 @@ int main(int argc, char const *argv[]){
 
     pthread_create(&sync_thread, NULL, sync_files, NULL);
 
-    run_cli();
+    run_cli(sock_cmd);
     
     return 0;
 }

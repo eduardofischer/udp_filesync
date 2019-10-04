@@ -1,6 +1,5 @@
 #include "../include/filesystem.h"
 #include "../include/communication.h"
-
 /** 
  *  Cria um diretório de forma recursiva
  *  Retorno: 0 - Diretório Criado
@@ -83,29 +82,16 @@ int isOpened(FILE *sourceFile){
 
 int fileSizeInPackets(int fileSize){
     int totalPackets;
+
+	if (fileSize == 0){
+		return 1;
+	}
+
     //O tamanho do arquivo em pacotes é acrescido de um pacote caso haja resto.
     totalPackets = (fileSize % DATA_LENGTH) == 0? (fileSize / DATA_LENGTH) : (fileSize / DATA_LENGTH) + 1;
     return totalPackets;
 }
 
-
-int write_packet_to_the_file(PACKET *packet, FILE *file){
-    int bytes_written;
-    //Sets the pointer
-    fseek(file,packet->header.seqn * DATA_LENGTH, SEEK_SET);
-    //Writes the pointer to the file
-    bytes_written = fwrite(packet->data,sizeof(char), packet->header.length,file);
-    rewind(file);
-
-    if (bytes_written == sizeof(char) * packet->header.length){
-        return SUCCESS;
-    }
-    else{
-        printf("There was a error writing to the file.");
-        return ERR_WRITING_FILE;
-    }
-
-}
 
 int get_dir_status(char *dir_path, DIR_ENTRY **entries){
     DIR *d;
@@ -225,3 +211,42 @@ void print_dir_status(DIR_ENTRY **entries, int n){
 }
 
 
+char **splitPath(char *name, int *size) {
+	int i = 0, n = 0;
+	char *nameCopy = malloc(strlen(name) + 1);
+  	strcpy(nameCopy, name);
+	// Conta ocorrencias
+	if (strlen(nameCopy) > 0 && nameCopy[0] != '/')
+		n++;
+	while (nameCopy[i] != '\0') {
+		if (nameCopy[i] == '/')
+			n++;
+		i++;
+	}
+	if (strlen(nameCopy) > 0 && nameCopy[strlen(nameCopy)-1] == '/') {
+		nameCopy[strlen(nameCopy)-1] = '\0';
+		n--;
+	}
+	
+	*size = n;
+
+	i = 0;
+	char **strings;
+	strings = (char**)malloc(sizeof(char)*n);
+	char *substring;
+	char *nameBuff = strdup(nameCopy); // Necessaroi para strsep
+	while( (substring = strsep(&nameBuff,"/")) != NULL ) {
+		if (strlen(substring) > 0) {
+			strings[i] = (char*) malloc(sizeof(char)*FILE_NAME_SIZE);
+			strcpy(strings[i], substring);
+			i++;
+		}
+	}
+	*size = n;
+	if (*size == 1 && strings[0] == NULL) {
+		*size = 0;
+		free(strings);
+		return NULL;
+	}
+	return strings;
+}

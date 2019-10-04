@@ -3,8 +3,12 @@
 #include "../include/server.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
+#include <utime.h>
 
 int listen_socket;
+
+
+
 
 /** 
  *  Escuta um cliente em um determinado socket 
@@ -15,10 +19,22 @@ void *thread_client_cmd(void *thread_info){
 	THREAD_INFO info = *((THREAD_INFO *) thread_info);
 	REMOTE_ADDR addr = info.client.client_addr;
 	PACKET msg;
-	COMMAND *cmd;
 	struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
 	int n, socket = info.sock_cmd;
+    COMMAND *cmd;
+	FILE_INFO file_info;
+	struct stat stats;
+	char storage_root[15] = "user_data/";   
+	char storage_client[MAX_PATH_LENGTH];
+	char download_file_path[MAX_PATH_LENGTH];
+
+	//Seta o path para o armazenamento de dados do cliente que solicitou algo ao servidor
+	//Consiste de uma pasta raiz para todos os clientes, mais pastas para cada cliente.
+	strcpy(storage_client,storage_root);
+	strcat(storage_client,(info.client).username);
+
+	printf("%s", storage_client);
 
 	cli_addr.sin_family = AF_INET;
     cli_addr.sin_port = htons(addr.port);
@@ -45,18 +61,28 @@ void *thread_client_cmd(void *thread_info){
 
             switch((*cmd).code){
                 case UPLOAD:
-                    if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] CMD: UPLOAD - Uploaded %s to %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument, username);
-                        ack(socket, (struct sockaddr *) &cli_addr, clilen);
-						upload(cmd->argument, user_dir, socket);
-                    }else{
-                        err(socket, (struct sockaddr *) &cli_addr, clilen, "UPLOAD missing argument");      
-                    }
+					file_info = *((FILE_INFO*)cmd->argument);
+                    printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
+                    ack(socket, (struct sockaddr *) &cli_addr, clilen);
+					receive_file(file_info,storage_client,socket);
+                   
                     break;
                 case DOWNLOAD:
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
                         ack(socket, (struct sockaddr *) &cli_addr, clilen);
+						
+						strcpy(download_file_path,storage_client);
+						strcat(download_file_path,"/");
+						strcat(download_file_path,cmd->argument);
+						stat(download_file_path,&stats);
+						
+						strcpy(file_info.filename,cmd->argument);
+						file_info.access_time = stats.st_atime;
+						file_info.modification_time = stats.st_mtime;
+						printf("%s", download_file_path);
+						send_file(addr,download_file_path);
+						
                     }else
                         err(socket, (struct sockaddr *) &cli_addr, clilen, "DOWNLOAD missing argument"); 
                     break;
@@ -64,6 +90,10 @@ void *thread_client_cmd(void *thread_info){
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] CMD:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
                         ack(socket, (struct sockaddr *) &cli_addr, clilen);
+						char file_name[FILE_NAME_SIZE];
+						strcpy(file_name, cmd->argument); 
+						delete(file_name, storage_client);
+						break;
                     }else
                         err(socket, (struct sockaddr *) &cli_addr, clilen, "DELETE missing argument");
                     
@@ -175,60 +205,6 @@ int new_client(CLIENT_INFO *client){
 
     return 0;
 }
-
-int upload(char *filename, char *user_dir, int socket){
-	FILE *new_file;
-	struct sockaddr_in source_addr;
-	socklen_t source_addr_len = sizeof(source_addr);
-	char file_path[MAX_PATH_LENGTH];
-	int last_received_packet, final_packet, n, first_message_not_received = 1;
-	PACKET received;
-
-	//Prepare archive path
-	strcpy(file_path, user_dir);
-	strcat(file_path, filename);
-	
-	new_file = fopen(file_path, "wb");
-	
-	if(isOpened(new_file)){
-		do{
-			n = recvfrom(socket, (void*) &received, PACKET_SIZE, 0, (struct sockaddr *) &source_addr, &source_addr_len);
-			if (n < 0){
-				fprintf(stderr, "ERROR receiving upload data: %s\n", strerror(errno));
-			err(socket, (struct sockaddr *) &source_addr, source_addr_len, "SERVER ERROR receiving upload data");
-			}
-			else{	//Message correctly received
-				ack(socket,(struct sockaddr *) &source_addr,source_addr_len);
-				first_message_not_received = 0; //The first message was received
-				write_packet_to_the_file(&received,new_file);
-			}
-			final_packet = received.header.total_size - 1;
-			last_received_packet = received.header.seqn;
-
-		}while(first_message_not_received);
-
-	
-		while(last_received_packet < final_packet){
-			n = recvfrom(socket, (void*) &received, PACKET_SIZE, 0, (struct sockaddr *) &source_addr, &source_addr_len);
-			if (n >= 0){
-				ack(socket,(struct sockaddr *) &source_addr,source_addr_len);
-				write_packet_to_the_file(&received,new_file);
-				last_received_packet = received.header.seqn;
-			}
-			else{
-				err(socket, (struct sockaddr *) &source_addr, source_addr_len, "Error receiving the message");
-			}
-		}
-
-		fclose(new_file);
-		return SUCCESS;
-	}
-	else{
-		printf("Erro ao criar arquivo em função de upload, tentou-se criar o arquivo: %s", file_path);
-		return ERR_OPEN_FILE;
-	}
-}
-
 int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
 	int n_server_ent;
@@ -259,6 +235,20 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	free(server_entries);
 
 	return 0;
+}
+
+int delete(char *file_name, char *client_folder_path){
+	char private_path_copy[FILE_NAME_SIZE];
+	strcpy(private_path_copy, client_folder_path);
+	strcat(private_path_copy, "/");
+	char *target = strcat(private_path_copy, file_name);
+	if(remove(target) == 0){
+		return SUCCESS;
+	}
+	else{
+		printf("\nError deleting file.\n");
+		return -1;
+	}
 }
 
 int main(int argc, char const *argv[]){

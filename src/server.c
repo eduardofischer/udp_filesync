@@ -238,7 +238,7 @@ int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	n_server_ent = get_dir_status(user_dir, &server_entries);
 	n_packets = (n_server_ent * sizeof(DIR_ENTRY)) % DATA_LENGTH ? ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH) + 1 : ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH);
 
-	while(packet_number <= n_packets){
+	do{
         entries_pkt.header.type = DATA;
         entries_pkt.header.seqn = packet_number;
         entries_pkt.header.total_size = n_packets;     
@@ -255,8 +255,8 @@ int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
             printf ("Error list_server send_packet: %s\n", strerror(errno));
             return -1;
         }
-    }
-	
+    }while(packet_number < n_packets);
+	printf("Passou while list_server\n");
 	free(server_entries);
 
 	return 0;

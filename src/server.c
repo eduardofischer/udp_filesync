@@ -256,7 +256,7 @@ int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
             return -1;
         }
     }while(packet_number < n_packets);
-	printf("Passou while list_server\n");
+	
 	free(server_entries);
 
 	return 0;

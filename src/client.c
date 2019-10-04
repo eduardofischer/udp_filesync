@@ -81,7 +81,7 @@ int deleteFile(char* fileName){
 int listServer(){
     DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
     int n_packets, n, last_recv_packet, server_length = 0;
-    int n_server_ent, i;
+    int n_server_ent;
     PACKET recv_entries_pkt;
 
     if(send_command(sock_cmd, server_cmd, LST_SV, NULL) < 0){
@@ -106,9 +106,7 @@ int listServer(){
     n_server_ent = server_length / sizeof(DIR_ENTRY);
 
     if((strlen(server_entries[0].name)) > 0)
-        for(i=0; i < n_server_ent; i++){
-            printf("%s\n", server_entries[i].name);
-        }
+        print_dir_status(&server_entries, n_server_ent);
     else
         printf("Server directory is empty.\n");
 

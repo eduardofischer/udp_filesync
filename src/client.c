@@ -31,7 +31,7 @@ int uploadFile(char* filePath){
 }
 
 /** Faz o download de um arquivo do servidor **/
-int downloadFile(int socket, char *filename){
+int downloadFile(int socket, char *filename, char *dir_path){
     int n;
     PACKET msg;
     struct sockaddr_in cli_addr;
@@ -51,7 +51,7 @@ int downloadFile(int socket, char *filename){
     file_info = *((FILE_INFO*)cmd->argument);
     printf("%s",file_info.filename);
     //Recebe o arquivo informado em file_info.
-    return receive_file(file_info, ".", socket);
+    return receive_file(file_info, dir_path, socket);
 }
 
 /** Exclui um arquivo de sync_dir **/
@@ -212,7 +212,7 @@ void run_cli(int socket){
                 printf("Error uploading file.\n");
             }
         }else if(!strcmp(user_cmd, "download")) {
-           if (downloadFile(socket,user_arg) == -1){
+           if (downloadFile(socket,user_arg,"./") == -1){
                 printf("Error downloading file.\n");
             }
         }else if(!strcmp(user_cmd, "delete")) {

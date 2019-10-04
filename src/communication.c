@@ -233,7 +233,7 @@ int send_file(REMOTE_ADDR address, char *filePath){
 }
 
 
-int receive_file(FILE_INFO file_info, char *user_dir, int dataSocket){
+int receive_file(FILE_INFO file_info, char *dir_path, int dataSocket){
 	FILE *toBeCreated;
 	struct sockaddr_in source_addr;
 	socklen_t socket_addr_len = sizeof(source_addr);
@@ -250,7 +250,7 @@ int receive_file(FILE_INFO file_info, char *user_dir, int dataSocket){
 	time.modtime = file_info.modification_time;
 
 	//Prepare archive path
-	strcpy(file_path, user_dir);
+	strcpy(file_path, dir_path);
 	strcat(file_path, file_info.filename);
 	
 	toBeCreated = fopen(file_path, "wb");

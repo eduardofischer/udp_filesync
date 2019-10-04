@@ -139,7 +139,7 @@ void init_data_packet_header(PACKET *toInit,uint32_t total_size);
 
 int send_file(REMOTE_ADDR address, char *filePath);
 
-int receive_file(FILE_INFO file_info, char *archive_file, int dataSocket);
+int receive_file(FILE_INFO file_info, char *dir_path, int dataSocket);
 
 /**Escreve o pacote num arquivo, lidando com os ofsets dentro do arquivo. 
  * Deixa o ponteiro no ponto onde estava antes.

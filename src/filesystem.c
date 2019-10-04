@@ -133,6 +133,8 @@ int get_dir_status(char *dir_path, DIR_ENTRY **entries){
         }
     }
 
+	printf("%i", i * sizeof(DIR_ENTRY));
+
     /* Close the directory. */
     if (closedir (d) < 0) {
         fprintf (stderr, "Could not close '%s': %s\n", dir_path, strerror (errno));

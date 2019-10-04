@@ -202,7 +202,7 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	PACKET entries_pkt;
 
 	n_server_ent = get_dir_status(user_dir, &server_entries);
-	n_packets = ceil((n_server_ent * sizeof(DIR_ENTRY)) / (double) DATA_LENGTH);
+	n_packets = (n_server_ent * sizeof(DIR_ENTRY)) % DATA_LENGTH ? ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH) + 1 : ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH);
 	printf("%d - n_server_entries", n_server_ent);
 	printf("%d - n_packets\n", n_packets);
 
@@ -210,18 +210,21 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
         entries_pkt.header.type = DATA;
         entries_pkt.header.seqn = packet_number;
         entries_pkt.header.total_size = n_packets;     
-        if(packet_number == n_packets - 1)
+        if(packet_number == (n_packets - 1))
             entries_pkt.header.length = (n_server_ent * sizeof(DIR_ENTRY)) % DATA_LENGTH;
         else
             entries_pkt.header.length = DATA_LENGTH;
 
-		int entries_in_a_packet = ceil(entries_pkt.header.length / sizeof(DIR_ENTRY));
+		// int entries_in_a_packet = floor(entries_pkt.header.length / sizeof(DIR_ENTRY));
 
 		printf("Imprime aqui\n");
-        memcpy(&entries_pkt.data, server_entries + packet_number*entries_in_a_packet, entries_pkt.header.length);
+		
+		
+        memcpy(&entries_pkt.data, ((char*) server_entries) + (packet_number*DATA_LENGTH), entries_pkt.header.length);
 		printf("Mas aqui nãoooooo\n");
 
 		packet_number++;
+		printf("pointer offset %i", server_entries + packet_number*DATA_LENGTH);
         n = send_packet(socket, client_addr, entries_pkt);
 
         if(n < 0){

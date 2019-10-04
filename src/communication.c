@@ -233,11 +233,11 @@ int send_file(REMOTE_ADDR address, char *filePath){
 }
 
 
-int receive_file(FILE_INFO file_info, char *archive_file, int dataSocket){
+int receive_file(FILE_INFO file_info, char *user_dir, int dataSocket){
 	FILE *toBeCreated;
 	struct sockaddr_in source_addr;
 	socklen_t socket_addr_len = sizeof(source_addr);
-	char *full_archive_path = malloc(sizeof(char) * MAX_PATH_LENGTH);
+	char file_path[MAX_PATH_LENGTH];
 	int last_received_packet;
 	int last_packet;
 	PACKET received;
@@ -245,17 +245,15 @@ int receive_file(FILE_INFO file_info, char *archive_file, int dataSocket){
 	struct utimbuf time;
 	int first_message_not_received = 1;
 
-
 	//Timestamps novos
 	time.actime = file_info.access_time;
 	time.modtime = file_info.modification_time;
 
 	//Prepare archive path
-	strcpy(full_archive_path,archive_file);
-	strcat(full_archive_path,"/");
-	strcat(full_archive_path,file_info.filename);
+	strcpy(file_path, user_dir);
+	strcat(file_path, file_info.filename);
 	
-	toBeCreated = fopen(full_archive_path,"wb");
+	toBeCreated = fopen(file_path, "wb");
 	
 	if(isOpened(toBeCreated)){
 		do{
@@ -288,15 +286,12 @@ int receive_file(FILE_INFO file_info, char *archive_file, int dataSocket){
 		}
 		
 		fclose(toBeCreated);
-		utime(full_archive_path,&time);
+		utime(file_path, &time);
 		
 		return SUCCESS;
-		
-		
-			
 	}
 	else{
-		printf("Erro ao criar arquivo em função de upload, tentou-se criar o arquivo: %s", full_archive_path);
+		printf("Erro ao criar arquivo em função de upload, tentou-se criar o arquivo: %s", file_path);
 		return ERR_OPEN_FILE;
 	}
 }

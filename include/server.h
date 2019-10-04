@@ -46,9 +46,6 @@ int new_client(CLIENT_INFO *client);
 
 int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr);
 
-int upload(FILE_INFO file_info, char *archive_file, int data_socket);
-
 int delete(char *file_name, char *client_folder_path);
-
 
 #endif

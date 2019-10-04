@@ -53,7 +53,7 @@ typedef struct FileInfo{
     time_t modification_time;
     time_t access_time;
     char filename[MAX_NAME_LENGTH];
-}FILE_INFO;
+} FILE_INFO;
 
 /** Estrutura do datagrama UDP */
 typedef struct PacketHeader{

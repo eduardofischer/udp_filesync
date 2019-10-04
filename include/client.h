@@ -9,7 +9,7 @@
 int uploadFile(char* filePath);
 
 /** Faz o download de um arquivo do servidor **/
-int downloadFile(int socket,char *filePath);
+int downloadFile(int socket,char *filename);
 
 /** Exclui um arquivo de sync_dir **/
 int deleteFile(char* fileName);

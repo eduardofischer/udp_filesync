@@ -14,42 +14,21 @@ int listen_socket;
  *  Escuta um cliente em um determinado socket 
  * */
 void *thread_client_cmd(void *thread_info){
-	char username[MAX_NAME_LENGTH];
-	char user_dir[MAX_PATH_LENGTH];
+	char user_dir[MAX_PATH_LENGTH], download_file_path[MAX_PATH_LENGTH];
 	THREAD_INFO info = *((THREAD_INFO *) thread_info);
 	REMOTE_ADDR addr = info.client.client_addr;
 	PACKET msg;
-	struct sockaddr_in cli_addr;
-	socklen_t clilen = sizeof(cli_addr);
-	int n, socket = info.sock_cmd;
     COMMAND *cmd;
 	FILE_INFO file_info;
-	struct stat stats;
-	char storage_root[15] = "user_data/";   
-	char storage_client[MAX_PATH_LENGTH];
-	char download_file_path[MAX_PATH_LENGTH];
-
-	//Seta o path para o armazenamento de dados do cliente que solicitou algo ao servidor
-	//Consiste de uma pasta raiz para todos os clientes, mais pastas para cada cliente.
-	strcpy(storage_client,storage_root);
-	strcat(storage_client,(info.client).username);
-
-	printf("%s", storage_client);
-
-	cli_addr.sin_family = AF_INET;
-    cli_addr.sin_port = htons(addr.port);
-    cli_addr.sin_addr.s_addr = addr.ip;
-    bzero(&(cli_addr.sin_zero), 8);
-
-	strcpy(username, info.client.username);
+	int n, socket = info.sock_cmd;
 
 	// Path da pasta do usuário no servidor
 	strcpy(user_dir, SERVER_DIR);	
-	strcat(user_dir, username);
+	strcat(user_dir, info.client.username);
 	strcat(user_dir, "/");
 
     while(1){
-		n = recvfrom(socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
+		n = recv_packet(socket, NULL, &msg);
 
 		if (n < 0){
 			printf("ERROR recvfrom:  %s\n", strerror(errno));
@@ -62,68 +41,52 @@ void *thread_client_cmd(void *thread_info){
             switch((*cmd).code){
                 case UPLOAD:
 					file_info = *((FILE_INFO*)cmd->argument);
-                    printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
-                    ack(socket, (struct sockaddr *) &cli_addr, clilen);
-					receive_file(file_info,storage_client,socket);
+                    printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, file_info.filename);
+					receive_file(file_info, user_dir, socket);
                    
                     break;
                 case DOWNLOAD:
                     if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] CMD: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
-                        ack(socket, (struct sockaddr *) &cli_addr, clilen);
-						
-						strcpy(download_file_path,storage_client);
-						strcat(download_file_path,"/");
-						strcat(download_file_path,cmd->argument);
-						stat(download_file_path,&stats);
-						
-						strcpy(file_info.filename,cmd->argument);
-						file_info.access_time = stats.st_atime;
-						file_info.modification_time = stats.st_mtime;
-						printf("%s", download_file_path);
-						send_file(addr,download_file_path);
-						
+                        printf("📝 [%s:%d] CMD: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);		
+						strcpy(download_file_path, user_dir);
+						strcat(download_file_path, cmd->argument);		
+						send_file(addr, download_file_path);			
                     }else
-                        err(socket, (struct sockaddr *) &cli_addr, clilen, "DOWNLOAD missing argument"); 
+                        printf("ERROR: download missing argument\n"); 
+
                     break;
                 case DELETE:
                     if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] CMD:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, (*cmd).argument);
-                        ack(socket, (struct sockaddr *) &cli_addr, clilen);
-						char file_name[FILE_NAME_SIZE];
-						strcpy(file_name, cmd->argument); 
-						delete(file_name, storage_client);
-						break;
+                        printf("📝 [%s:%d] CMD:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
+						delete(cmd->argument, user_dir);
                     }else
-                        err(socket, (struct sockaddr *) &cli_addr, clilen, "DELETE missing argument");
+                        printf("ERROR: delete missing argument\n");
                     
                     break;
                 case LST_SV:
                     printf("📝 [%s:%d] CMD: LST_SV\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
-                    ack(socket, (struct sockaddr *) &cli_addr, clilen);
+
                     break;
                 case EXIT:
                     printf("📝 [%s:%d] CMD: EXIT\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
-                    ack(socket, (struct sockaddr *) &cli_addr, clilen);
 					pthread_exit(NULL);
+
                     break;
                 default:
-                    fprintf(stderr, "❌ ERROR Invalid Command\n");
-                    err(socket, (struct sockaddr *) &cli_addr, clilen, "Invalid command");
+                    printf("✉ [%s:%d] WARNING: Message ignored by CMD thread. Wrong CMD code.\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
             }
         }else
-			printf("✉ [%s:%d] WARNING: Message ignored by CMD thread. Wrong type.\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
-		
+			printf("✉ [%s:%d] WARNING: Message ignored by CMD thread. Wrong type.\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);	
     }
 }
 
 void *thread_client_sync(void *thread_info){
-	char username[MAX_NAME_LENGTH];
-	char user_dir[MAX_PATH_LENGTH];
+	char user_dir[MAX_PATH_LENGTH], download_file_path[MAX_PATH_LENGTH];
 	THREAD_INFO info = *((THREAD_INFO *) thread_info);
 	REMOTE_ADDR addr = info.client.client_addr;
 	PACKET msg;
 	COMMAND *cmd;
+	FILE_INFO file_info;
 	struct sockaddr_in cli_addr;
 	int n, socket = info.sock_sync;
 
@@ -132,11 +95,9 @@ void *thread_client_sync(void *thread_info){
     cli_addr.sin_addr.s_addr = addr.ip;
     bzero(&(cli_addr.sin_zero), 8);
 
-	strcpy(username, info.client.username);
-
 	// Path da pasta do usuário no servidor
 	strcpy(user_dir, SERVER_DIR);	
-	strcat(user_dir, username);
+	strcat(user_dir, info.client.username);
 	strcat(user_dir, "/");
 
     while(1){
@@ -149,9 +110,38 @@ void *thread_client_sync(void *thread_info){
 
 		cmd = (COMMAND *) &msg.data;
 
-        if(msg.header.type == CMD && (*cmd).code == SYNC_DIR){
-			printf("📝 [%s:%d] CMD: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, username);
-			sync_user(socket, user_dir, addr);
+        if(msg.header.type == CMD){
+			switch((*cmd).code){
+				case SYNC_DIR:
+					printf("📝 [%s:%d] SYNC: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username);
+					sync_user(socket, user_dir, addr);
+				case UPLOAD:
+					file_info = *((FILE_INFO*)cmd->argument);
+                    printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, file_info.filename);
+					receive_file(file_info, user_dir, socket);
+                   
+                    break;
+                case DOWNLOAD:
+                    if(strlen((*cmd).argument) > 0){
+                        printf("📝 [%s:%d] CMD: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);		
+						strcpy(download_file_path, user_dir);
+						strcat(download_file_path, cmd->argument);		
+						send_file(addr, download_file_path);			
+                    }else
+                        printf("ERROR: download missing argument\n"); 
+
+                    break;
+                case DELETE:
+                    if(strlen((*cmd).argument) > 0){
+                        printf("📝 [%s:%d] CMD:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
+						delete(cmd->argument, user_dir);
+                    }else
+                        printf("ERROR: delete missing argument\n");
+                    
+                    break;
+			}
+				
+			
         }else
 			printf("✉ [%s:%d] WARNING: Message ignored by SYNC thread. Wrong type.\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
     }  
@@ -223,9 +213,13 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
         else
             entries_pkt.header.length = DATA_LENGTH;
 
-        memcpy(&entries_pkt.data, server_entries + packet_number*sizeof(DIR_ENTRY), entries_pkt.header.length);
+		printf("Imprime aqui\n");
+        memcpy(&entries_pkt.data, server_entries + packet_number*DATA_LENGTH, entries_pkt.header.length);
+		printf("Mas aqui não\n");
 
+		packet_number++;
         n = send_packet(socket, client_addr, entries_pkt);
+
         if(n < 0){
             printf ("Error request_sync send_packet: %s\n", strerror(errno));
             return -1;

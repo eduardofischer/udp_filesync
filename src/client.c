@@ -31,7 +31,7 @@ int uploadFile(char* filePath){
 }
 
 /** Faz o download de um arquivo do servidor **/
-int downloadFile(int socket,char *filePath){
+int downloadFile(int socket, char *filename){
     int n;
     PACKET msg;
     struct sockaddr_in cli_addr;
@@ -40,7 +40,7 @@ int downloadFile(int socket,char *filePath){
     COMMAND *cmd;
 
     //Envia um comando de download
-    send_command(socket,server_cmd,DOWNLOAD,filePath);
+    send_command(socket, server_cmd, DOWNLOAD, filename);
     //Espera pelas mensagens contendo as informações do arquivo (tempos)
     do{
         n = recvfrom(socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
@@ -213,9 +213,11 @@ int request_sync(){
     int n_server_ent, i;
     PACKET recv_entries_pkt;
     SYNC_LIST list;
+    // FILE_INFO file_info;
+    // struct stat file_stat;
+    // char file_path[MAX_PATH_LENGTH];
 
     n_entries = get_dir_status(LOCAL_DIR, &entries);
-    n_packets = ceil((n_entries * sizeof(DIR_ENTRY)) / (double) DATA_LENGTH);
 
     if(send_command(sock_sync, server_sync, SYNC_DIR, NULL) < 0){
         printf("ERROR sending sync cmd: %s\n", strerror(errno));
@@ -226,13 +228,15 @@ int request_sync(){
         n = recv_packet(sock_sync, NULL, &recv_entries_pkt);
 		if (n < 0){
 			fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
-			//err(socket, (struct sockaddr *) &source_addr, source_addr_len, "SERVER ERROR receiving client_entries");
 		} else {	//Message correctly received
-			server_entries = realloc(server_entries, server_length + recv_entries_pkt.header.length);
+			server_entries = realloc(server_entries, server_length + recv_entries_pkt.header.length + 1);
+            printf("Blob Length: %d\n", recv_entries_pkt.header.length);
+            printf("Realloc new size: %d\n", server_length + recv_entries_pkt.header.length);
+            printf("memcpy size: %d\n", recv_entries_pkt.header.length);
+            printf("memcpy pos: %d\n", server_length);
 			memcpy(server_entries + server_length, &recv_entries_pkt.data, recv_entries_pkt.header.length);
-			server_length += recv_entries_pkt.header.length;
+            server_length += recv_entries_pkt.header.length;
 		}
-
 		n_packets = recv_entries_pkt.header.total_size;
 		last_recv_packet = recv_entries_pkt.header.seqn;
 	} while(last_recv_packet < n_packets - 1);
@@ -241,13 +245,22 @@ int request_sync(){
 
     compare_entry_diff(server_entries, entries, n_server_ent, n_entries, &list);
 
-    printf("\n\nLista de DOWNLOAD:\n");
-	for(i=0; i<list.n_downloads; i++)
-		printf("- %s\n", (char *)(list.list + i * MAX_NAME_LENGTH));
+    // printf("Server entries:\n");
+    // print_dir_status(&server_entries, n_server_ent);
 
+    // printf("Client entries:\n");
+    // print_dir_status(&entries, n_entries);
+
+    printf("\n\nLista de DOWNLOAD:\n");
+	for(i=0; i<list.n_downloads; i++){
+        printf("- %s\n", (char *)(list.list + i * MAX_NAME_LENGTH));
+        //downloadFile(sock_sync, (char *)(list.list + i * MAX_NAME_LENGTH));
+    }
+		
 	printf("Lista de UPLOAD:\n");
-	for(i=0; i<list.n_uploads; i++)
-		printf("- %s\n", (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
+	for(i=0; i<list.n_uploads; i++){
+        printf("- %s\n", (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
+    }
 
 	printf("\n");
 

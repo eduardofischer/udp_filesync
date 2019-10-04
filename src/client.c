@@ -79,7 +79,36 @@ int deleteFile(char* fileName){
 
 /** Lista os arquivos salvos no servidor associados ao usuário **/
 int listServer(){
-    return -1;
+    DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
+    int n_packets, n, last_recv_packet, server_length = 0;
+    int n_server_ent, i;
+    PACKET recv_entries_pkt;
+
+    if(send_command(sock_cmd, server_cmd, LST_SV, NULL) < 0){
+        printf("ERROR sending list_server cmd: %s\n", strerror(errno));
+        return -1;
+    }
+
+    do {
+        n = recv_packet(sock_cmd, NULL, &recv_entries_pkt);
+		if (n < 0){
+			fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
+		} else {	//Message correctly received
+			server_entries = realloc(server_entries, server_length + recv_entries_pkt.header.length + 1);
+			memcpy((char*)server_entries + server_length, recv_entries_pkt.data, recv_entries_pkt.header.length);
+            server_length += recv_entries_pkt.header.length;
+		}
+		n_packets = recv_entries_pkt.header.total_size;
+		last_recv_packet = recv_entries_pkt.header.seqn;
+	} while(last_recv_packet < n_packets - 1);
+
+    n_server_ent = server_length / sizeof(DIR_ENTRY);
+
+    for(i=0; i < n_server_ent; i++){
+        printf("%s\n", server_entries[i].name);
+    }
+
+    return 0;
 };
 
 /** Lista os arquivos salvos no diretório “sync_dir” **/
@@ -241,11 +270,11 @@ int request_sync(){
 
     compare_entry_diff(server_entries, entries, n_server_ent, n_entries, &list);
 
-    // printf("Server entries:\n");
-    // print_dir_status(&server_entries, n_server_ent);
+    //printf("Server entries:\n");
+    //print_dir_status(&server_entries, n_server_ent);
 
-    // printf("Client entries:\n");
-    // print_dir_status(&entries, n_entries);
+    //printf("Client entries:\n");
+    //print_dir_status(&entries, n_entries);
 
     printf("\n\nLista de DOWNLOAD:\n");
 	for(i=0; i<list.n_downloads; i++){

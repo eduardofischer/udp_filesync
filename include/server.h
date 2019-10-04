@@ -46,6 +46,8 @@ int new_client(CLIENT_INFO *client);
 
 int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr);
 
+int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr);
+
 int delete(char *file_name, char *client_folder_path);
 
 #endif

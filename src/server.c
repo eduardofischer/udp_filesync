@@ -65,7 +65,7 @@ void *thread_client_cmd(void *thread_info){
                     break;
                 case LST_SV:
                     printf("📝 [%s:%d] CMD: LST_SV\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
-
+					list_server(socket, user_dir, addr);
                     break;
                 case EXIT:
                     printf("📝 [%s:%d] CMD: EXIT\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
@@ -220,6 +220,39 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 
         if(n < 0){
             printf ("Error request_sync send_packet: %s\n", strerror(errno));
+            return -1;
+        }
+    }
+	
+	free(server_entries);
+
+	return 0;
+}
+
+list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
+	DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
+	int n_server_ent;
+	int n_packets, n, packet_number = 0;
+	PACKET entries_pkt;
+
+	n_server_ent = get_dir_status(user_dir, &server_entries);
+	n_packets = (n_server_ent * sizeof(DIR_ENTRY)) % DATA_LENGTH ? ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH) + 1 : ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH);
+
+	while(packet_number < n_packets){
+        entries_pkt.header.type = DATA;
+        entries_pkt.header.seqn = packet_number;
+        entries_pkt.header.total_size = n_packets;     
+        if(packet_number == (n_packets - 1))
+            entries_pkt.header.length = (n_server_ent * sizeof(DIR_ENTRY)) % DATA_LENGTH;
+        else
+            entries_pkt.header.length = DATA_LENGTH;
+
+		memcpy(&entries_pkt.data, ((char*) server_entries) + (packet_number*DATA_LENGTH), entries_pkt.header.length);
+		packet_number++;
+        n = send_packet(socket, client_addr, entries_pkt);
+
+        if(n < 0){
+            printf ("Error list_server send_packet: %s\n", strerror(errno));
             return -1;
         }
     }

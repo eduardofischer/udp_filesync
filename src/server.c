@@ -229,7 +229,7 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	return 0;
 }
 
-list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
+int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
 	int n_server_ent;
 	int n_packets, n, packet_number = 0;
@@ -238,7 +238,9 @@ list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	n_server_ent = get_dir_status(user_dir, &server_entries);
 	n_packets = (n_server_ent * sizeof(DIR_ENTRY)) % DATA_LENGTH ? ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH) + 1 : ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH);
 
-	while(packet_number < n_packets){
+	printf("packet_number = %d, n_packets = %d\n", packet_number, n_packets);
+
+	while(packet_number <= n_packets){
         entries_pkt.header.type = DATA;
         entries_pkt.header.seqn = packet_number;
         entries_pkt.header.total_size = n_packets;     

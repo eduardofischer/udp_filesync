@@ -91,6 +91,7 @@ int listServer(){
 
     do {
         n = recv_packet(sock_cmd, NULL, &recv_entries_pkt);
+
 		if (n < 0){
 			fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
 		} else {	//Message correctly received
@@ -104,9 +105,12 @@ int listServer(){
 
     n_server_ent = server_length / sizeof(DIR_ENTRY);
 
-    for(i=0; i < n_server_ent; i++){
-        printf("%s\n", server_entries[i].name);
-    }
+    if((strlen(server_entries[0].name)) > 0)
+        for(i=0; i < n_server_ent; i++){
+            printf("%s\n", server_entries[i].name);
+        }
+    else
+        printf("Server directory is empty.\n");
 
     return 0;
 };
@@ -117,8 +121,13 @@ int list_client(){
     int n_entries;
 
     n_entries = get_dir_status(LOCAL_DIR, &entries);
-    print_dir_status(&entries, n_entries);
-
+    
+    if(n_entries > 0){
+        print_dir_status(&entries, n_entries);
+    }
+    else{
+        printf("Client sync directory is empty.\n");
+    }
     free(entries);
 
     return n_entries;

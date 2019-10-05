@@ -4,8 +4,12 @@
 #include "../include/communication.h"
 #include "../include/filesystem.h"
 #include <utime.h>
+#include <semaphore.h> 
 
 int listen_socket;
+sem_t *file_is_created;
+
+
 
 
 
@@ -89,6 +93,9 @@ void *thread_client_sync(void *thread_info){
 	FILE_INFO file_info;
 	struct sockaddr_in cli_addr;
 	int n, socket = info.sock_sync;
+
+	sem_wait(file_is_created);
+	sem_destroy(file_is_created);
 
 	cli_addr.sin_family = AF_INET;
     cli_addr.sin_port = htons(addr.port);
@@ -285,6 +292,7 @@ int main(int argc, char const *argv[]){
 	REMOTE_ADDR client_addr;
 	CLIENT_INFO client_info;
 
+
     listen_socket = create_udp_socket();
     listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, PORT);
 
@@ -296,6 +304,9 @@ int main(int argc, char const *argv[]){
 
     while (1) {
 		n = recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
+
+		file_is_created = (sem_t *) malloc(sizeof (sem_t));
+		sem_init(file_is_created,0,0);
 		
 		if (n < 0) 
 			printf("ERROR on recvfrom\n");
@@ -323,6 +334,8 @@ int main(int argc, char const *argv[]){
 
 			if (create_user_dir((char *) &(msg.data)) < 0) 
 				exit(0);
+			
+			sem_post(file_is_created);
 			
 			printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port,(char *) &(msg.data));
 		} else {

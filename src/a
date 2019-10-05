@@ -1,0 +1,4 @@
+mutex cliente - > sendo usado na função do cliente (para chamar outras funções)
+mutex do cliente no listener (no caso uma thread de cliente que  fica recebendo comandos do servidor).
+semaforo para o inotify -. sinalizando que o inotify esta em ação. Usado para  que caso o inotify
+esteja em ação nenhuma função execute no lado do cliente. Manter consistência com do diretório local?

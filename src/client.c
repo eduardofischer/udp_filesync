@@ -56,7 +56,7 @@ int downloadFile(int socket, char *filename, char *dir_path, REMOTE_ADDR remote)
     return receive_file(file_info, dir_path, socket);
 }
 
-/** Exclui um arquivo de sync_dir **/
+/** Pede que o servidor exclua um arquivo da pasta do usuario **/
 int deleteFile(char* fileName, REMOTE_ADDR remote){
     int socketDataTransfer;
     int response;
@@ -77,6 +77,20 @@ int deleteFile(char* fileName, REMOTE_ADDR remote){
     else{
         return ERR_SOCKET; 
     };
+};
+
+/* Exclui um arquivo da pasta sync_dir do usuario */
+int delete_file_local(char* file_name){
+    char target[FILE_NAME_SIZE];
+    strcpy(target, LOCAL_DIR);
+    strcat(target, file_name);
+	if(remove(target) == 0){
+		return SUCCESS;
+	}
+	else{
+		printf("\nError deleting file.\n");
+		return -1;
+	}
 };
 
 /** Lista os arquivos salvos no servidor associados ao usuário **/
@@ -217,7 +231,7 @@ void run_cli(int socket){
                 printf("Error downloading file.\n");
             }
         }else if(!strcmp(user_cmd, "delete")) {
-            if (deleteFile(user_arg, server_cmd) == -1){
+            if (delete_file_local(user_arg) == -1){
                 printf("Error deleting file.\n");
             }
         }else if(!strcmp(user_cmd, "list_server\n")){
@@ -352,14 +366,6 @@ void interruption_handler(int sig){
 int main(int argc, char const *argv[]){
     struct hostent *host;
     pthread_t sync_thread;
-
-    // Testing send_packet timeouts.
-    /*
-    REMOTE_ADDR addr_test;
-    PACKET packet_test;
-    int sock_test = create_udp_socket();
-    send_packet(sock_test, addr_test, packet_test, 10);
-    */
 
     if(argc < 3){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");

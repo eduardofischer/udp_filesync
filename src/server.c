@@ -295,11 +295,22 @@ int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
 }
 
 int delete(char *file_name, char *client_folder_path){
+	FILE *temp_file;
+	//Inicialização do nome do arquivo temporário
+	char temp_file_name[MAX_PATH_LENGTH];
+	strcpy(temp_file_name, client_folder_path);
+	strcat(temp_file_name,"/.~");
+	
 	char private_path_copy[FILE_NAME_SIZE];
 	strcpy(private_path_copy, client_folder_path);
 	strcat(private_path_copy, "/");
+	
 	char *target = strcat(private_path_copy, file_name);
 	if(remove(target) == 0){
+		strcat(temp_file_name,file_name);
+		//Apenas cria o arquivo vazio
+		temp_file = fopen(temp_file_name,"wb");
+		fclose(temp_file);
 		return SUCCESS;
 	}
 	else{

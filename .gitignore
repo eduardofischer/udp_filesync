@@ -1,6 +1,8 @@
 .vscode
 user_data/
 sync_dir/
+client
+server
 
 # Prerequisites
 *.d

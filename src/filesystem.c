@@ -130,6 +130,8 @@ int get_dir_status(char *dir_path, DIR_ENTRY **entries){
             strcpy((*entries)[i-1].name, entry->d_name);
             (*entries)[i-1].size = file_stat.st_size;
             (*entries)[i-1].last_modified = file_stat.st_mtime;
+			(*entries)[i-1].last_status = file_stat.st_ctime;
+			(*entries)[i-1].last_access = file_stat.st_atime;
         }
     }
 
@@ -204,10 +206,12 @@ void print_dir_status(DIR_ENTRY **entries, int n){
     printf("\n");
     for(i=0; i<n; i++){
         printf("-> %s\n", (*entries)[i].name);
-        printf("    size: %ld\n", (*entries)[i].size);
-        printf("    last modified: %s", ctime(&(*entries)[i].last_modified));
+        printf("    size: %ldB\n", (*entries)[i].size);
+        printf("    last modified(mtime): %s", ctime(&(*entries)[i].last_modified));
+		printf("    last accessed(atime): %s", ctime(&(*entries)[i].last_access));
+		printf("    last status change(ctime): %s", ctime(&(*entries)[i].last_status));
+		printf("\n");
     }
-    printf("\n");
 }
 
 

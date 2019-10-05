@@ -115,16 +115,17 @@ void *thread_client_sync(void *thread_info){
 				case SYNC_DIR:
 					printf("📝 [%s:%d] SYNC: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username);
 					sync_user(socket, user_dir, addr);
+					
 					break;
 				case UPLOAD:
 					file_info = *((FILE_INFO*)cmd->argument);
-                    printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, file_info.filename);
+                    printf("📝 [%s:%d] SYNC: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, file_info.filename);
 					receive_file(file_info, user_dir, socket);
                    
                     break;
                 case DOWNLOAD:
                     if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] CMD: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);		
+                        printf("📝 [%s:%d] SYNC: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);		
 						strcpy(download_file_path, user_dir);
 						strcat(download_file_path, cmd->argument);		
 						send_file(addr, download_file_path);			
@@ -134,7 +135,7 @@ void *thread_client_sync(void *thread_info){
                     break;
                 case DELETE:
                     if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] CMD:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
+                        printf("📝 [%s:%d] SYNC:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
 						delete(cmd->argument, user_dir);
                     }else
                         printf("ERROR: delete missing argument\n");
@@ -205,7 +206,7 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	n_server_ent = get_dir_status(user_dir, &server_entries);
 	n_packets = (n_server_ent * sizeof(DIR_ENTRY)) % DATA_LENGTH ? ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH) + 1 : ((n_server_ent * sizeof(DIR_ENTRY)) / DATA_LENGTH);
 
-	while(packet_number < n_packets){
+	do{
         entries_pkt.header.type = DATA;
         entries_pkt.header.seqn = packet_number;
         entries_pkt.header.total_size = n_packets;     
@@ -222,8 +223,8 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
             printf ("Error request_sync send_packet: %s\n", strerror(errno));
             return -1;
         }
-    }
-	
+    } while(packet_number < n_packets);
+
 	free(server_entries);
 
 	return 0;
@@ -255,8 +256,8 @@ int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
             printf ("Error list_server send_packet: %s\n", strerror(errno));
             return -1;
         }
-    }while(packet_number < n_packets);
-	printf("Passou while list_server\n");
+    } while(packet_number < n_packets);
+
 	free(server_entries);
 
 	return 0;

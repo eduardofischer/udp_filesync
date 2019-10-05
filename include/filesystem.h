@@ -52,5 +52,3 @@ void print_dir_status(DIR_ENTRY **entries, int n);
 void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, int n_server_ent, int n_client_ent, SYNC_LIST *list);
 
 char **splitPath(char *name, int *size); 
-
-

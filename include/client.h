@@ -6,10 +6,10 @@
 #define COMMAND_SIZE 256
 
 /** Envia o arquivo para o servidor **/
-int uploadFile(char* filePath);
+int uploadFile(char* filePath, REMOTE_ADDR remote);
 
 /** Faz o download de um arquivo do servidor **/
-int downloadFile(int socket,char *filename, char *dirPath);;
+int downloadFile(int socket, char *filename, char *dir_path, REMOTE_ADDR remote);
 
 /** Exclui um arquivo de sync_dir **/
 int deleteFile(char* fileName);

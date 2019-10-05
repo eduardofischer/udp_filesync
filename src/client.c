@@ -13,7 +13,7 @@ REMOTE_ADDR server_cmd;
 REMOTE_ADDR server_sync;
 
 /** Envia o arquivo para o servidor **/
-int uploadFile(char* filePath){
+int uploadFile(char* filePath, REMOTE_ADDR remote){
     FILE *file_to_upload;
 
     //Para testar se o arquivo existe
@@ -22,7 +22,7 @@ int uploadFile(char* filePath){
     //Caso exista, fecha e chama send_file
     if(file_to_upload != NULL){
         fclose(file_to_upload);
-        return send_file(server_cmd,filePath);
+        return send_file(remote, filePath);
     }
 
     //Caso nao exista retorna erro
@@ -31,7 +31,7 @@ int uploadFile(char* filePath){
 }
 
 /** Faz o download de um arquivo do servidor **/
-int downloadFile(int socket, char *filename, char *dir_path){
+int downloadFile(int socket, char *filename, char *dir_path, REMOTE_ADDR remote){
     int n;
     PACKET msg;
     struct sockaddr_in cli_addr;
@@ -40,7 +40,7 @@ int downloadFile(int socket, char *filename, char *dir_path){
     COMMAND *cmd;
 
     //Envia um comando de download
-    send_command(socket, server_cmd, DOWNLOAD, filename);
+    send_command(socket, remote, DOWNLOAD, filename);
     //Espera pelas mensagens contendo as informações do arquivo (tempos)
     do{
         n = recvfrom(socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
@@ -208,11 +208,11 @@ void run_cli(int socket){
         }
         
         if (!strcmp(user_cmd,"upload")) {
-            if (uploadFile(user_arg) == -1){
+            if (uploadFile(user_arg, server_cmd) == -1){
                 printf("Error uploading file.\n");
             }
         }else if(!strcmp(user_cmd, "download")) {
-           if (downloadFile(socket,user_arg,"./") == -1){
+           if (downloadFile(socket, user_arg, "./", server_cmd) == -1){
                 printf("Error downloading file.\n");
             }
         }else if(!strcmp(user_cmd, "delete")) {
@@ -251,9 +251,7 @@ int request_sync(){
     int n_server_ent, i;
     PACKET recv_entries_pkt;
     SYNC_LIST list;
-    // FILE_INFO file_info;
-    // struct stat file_stat;
-    // char file_path[MAX_PATH_LENGTH];
+    char file_path[MAX_PATH_LENGTH];
 
     n_entries = get_dir_status(LOCAL_DIR, &entries);
 
@@ -267,9 +265,14 @@ int request_sync(){
 		if (n < 0){
 			fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
 		} else {	//Message correctly received
-			server_entries = realloc(server_entries, server_length + recv_entries_pkt.header.length + 1);
-			memcpy((char*)server_entries + server_length, recv_entries_pkt.data, recv_entries_pkt.header.length);
-            server_length += recv_entries_pkt.header.length;
+            if(recv_entries_pkt.header.total_size > 0){
+                server_entries = realloc(server_entries, server_length + recv_entries_pkt.header.length + 1);
+                memcpy((char*)server_entries + server_length, recv_entries_pkt.data, recv_entries_pkt.header.length);
+                server_length += recv_entries_pkt.header.length;
+            }else{
+                server_length = 0;
+                break;
+            }
 		}
 		n_packets = recv_entries_pkt.header.total_size;
 		last_recv_packet = recv_entries_pkt.header.seqn;
@@ -277,26 +280,21 @@ int request_sync(){
 
 	n_server_ent = server_length / sizeof(DIR_ENTRY);
 
+    //printf("Server Entries: %d\n", n_server_ent);
+
     compare_entry_diff(server_entries, entries, n_server_ent, n_entries, &list);
 
-    //printf("Server entries:\n");
-    //print_dir_status(&server_entries, n_server_ent);
-
-    //printf("Client entries:\n");
-    //print_dir_status(&entries, n_entries);
-
-    printf("\n\nLista de DOWNLOAD:\n");
 	for(i=0; i<list.n_downloads; i++){
-        printf("- %s\n", (char *)(list.list + i * MAX_NAME_LENGTH));
-        //downloadFile(sock_sync, (char *)(list.list + i * MAX_NAME_LENGTH));
+        strcpy(file_path, LOCAL_DIR);
+        downloadFile(sock_sync, (char *)(list.list + i * MAX_NAME_LENGTH), file_path, server_sync);
+        //printf("- %s downloaded!\n", (char *)(list.list + i * MAX_NAME_LENGTH));
     }
 		
-	printf("Lista de UPLOAD:\n");
 	for(i=0; i<list.n_uploads; i++){
-        printf("- %s\n", (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
+        strcpy(file_path, LOCAL_DIR);
+        strcat(file_path, (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
+        uploadFile(file_path, server_sync);
     }
-
-	printf("\n");
 
     free(entries);
     free(server_entries);

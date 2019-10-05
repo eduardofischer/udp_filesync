@@ -19,6 +19,8 @@ typedef struct DirEntry{
     char name[256];
     unsigned long int size;
     time_t last_modified;
+    time_t last_status;
+    time_t last_access;
 } DIR_ENTRY;
 
 /** Cria diretórios recursivamente */

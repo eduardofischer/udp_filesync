@@ -9,11 +9,6 @@
 int listen_socket;
 sem_t *file_is_created;
 
-
-
-
-
-
 /** 
  *  Escuta um cliente em um determinado socket 
  * */
@@ -61,7 +56,7 @@ void *thread_client_cmd(void *thread_info){
                     break;
                 case DELETE:
                     if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] CMD:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
+                        printf("📝 [%s:%d] CMD: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
 						delete(cmd->argument, user_dir);
                     }else
                         printf("ERROR: delete missing argument\n");
@@ -142,7 +137,7 @@ void *thread_client_sync(void *thread_info){
                     break;
                 case DELETE:
                     if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] SYNC:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
+                        printf("📝 [%s:%d] SYNC: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
 						delete(cmd->argument, user_dir);
                     }else
                         printf("ERROR: delete missing argument\n");

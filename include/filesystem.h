@@ -13,10 +13,11 @@
 #include "../include/communication.h"
 
 #define FILE_NAME_SIZE 255
+#define MAX_PATH_LENGTH 255
+#define MAX_N_OF_FILES 255
 
 #define LOCAL_DIR "./sync_dir/"
 #define SERVER_DIR "./user_data/"
-#define MAX_PATH_LENGTH 255
 
 typedef struct DirEntry{
     char name[256];

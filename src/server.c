@@ -127,8 +127,6 @@ void *thread_client_sync(void *thread_info){
 	strcat(user_dir, info.client.username);
 	strcat(user_dir, "/");
 
-	
-
     while(1){
 		n = recv_packet(socket, &addr, &msg, 0);
 

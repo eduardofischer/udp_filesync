@@ -147,13 +147,31 @@ int get_dir_status(char *dir_path, DIR_ENTRY **entries){
 void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, int n_server_ent, int n_client_ent, SYNC_LIST *list){
 	char *downloadList = malloc(MAX_NAME_LENGTH);
 	char *uploadList = malloc(MAX_NAME_LENGTH);
-	int down_count = 0, up_count = 0, exists_in_client, exists_in_server;
+	char *deleteList = malloc(MAX_NAME_LENGTH);
+	int down_count = 0, up_count = 0, del_count = 0, exists_in_client, exists_in_server;
 	int i, j;
+	char *name_tok;
 
 	for(i=0; i < n_server_ent; i++){
 		exists_in_client = 0;
 		for(j=0; j < n_client_ent; j++){
-			if(!strcmp(server_entries[i].name, client_entries[j].name)){
+			name_tok = strtok(server_entries[i].name, "~");
+			name_tok = strtok(NULL, "~");
+			// Caso exista um sinalizador de DELETE
+			if(server_entries[i].name[1] == '~' && !strcmp(name_tok, client_entries[j].name)){
+				exists_in_client = 1;
+				if(server_entries[i].last_modified > client_entries[j].last_modified){
+					// Caso o marcador no servidor seja mais recente, adiciona a lista de deletes
+					del_count++;
+					deleteList = realloc(deleteList, MAX_NAME_LENGTH * del_count);
+					strcpy((char*)(deleteList + (del_count - 1) * MAX_NAME_LENGTH), client_entries[j].name);
+				} else {
+					// Caso o arquivo no cliente seja mais recente, adiciona à lista de uploads
+					up_count++;
+					uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
+					strcpy((char*)(uploadList + (up_count - 1) * MAX_NAME_LENGTH), client_entries[j].name);
+				}
+			} else if(!strcmp(server_entries[i].name, client_entries[j].name)){
 				exists_in_client = 1;
 				if(server_entries[i].last_modified < client_entries[j].last_modified){
 					// Caso o arquivo no cliente seja mais recente, adiciona à lista de uploads
@@ -182,7 +200,8 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 					downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
 					strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[j].name);
 				}
-			}
+			} else if(server_entries[j].name[1] == '~')
+				exists_in_server = 1;
 		}
 		if(!exists_in_server){
 			// Caso o arquivonão exista no servidor, adiciona à lista de uploads
@@ -195,9 +214,15 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 	// Preenche a sctruct com a lista de sincronização
 	list->n_downloads = down_count;
 	list->n_uploads = up_count;
-	list->list = malloc((up_count + down_count) * MAX_NAME_LENGTH);
+	list->n_deletes = del_count;
+	list->list = malloc((up_count + down_count + del_count) * MAX_NAME_LENGTH);
 	memcpy(list->list, downloadList, down_count * MAX_NAME_LENGTH);
 	memcpy(list->list + down_count * MAX_NAME_LENGTH, uploadList, up_count * MAX_NAME_LENGTH);
+	memcpy(list->list + (down_count + up_count) * MAX_NAME_LENGTH, deleteList, del_count * MAX_NAME_LENGTH);
+
+	free(downloadList);
+	free(uploadList);
+	free(deleteList);
 }
 
 void print_dir_status(DIR_ENTRY **entries, int n){
@@ -213,7 +238,6 @@ void print_dir_status(DIR_ENTRY **entries, int n){
 		printf("\n");
     }
 }
-
 
 char **splitPath(char *name, int *size) {
 	int i = 0, n = 0;

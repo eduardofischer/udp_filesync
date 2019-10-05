@@ -49,7 +49,6 @@
 #define SYNC_DIR 0x09
 #define EXIT     0x10
 
-
 typedef struct FileInfo{
     time_t modification_time;
     time_t access_time;
@@ -91,9 +90,10 @@ typedef struct server_ports{
 } SERVER_PORTS_FOR_CLIENT;
 
 /** Lista de sincronização */
-typedef struct sync_list{
+typedef struct sync_list {
     int n_downloads;
     int n_uploads;
+    int n_deletes;
     char *list;
 } SYNC_LIST;
 

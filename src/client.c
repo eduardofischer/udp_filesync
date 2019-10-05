@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include  <signal.h>
 #include <unistd.h>
 #include "../include/client.h"
 #include "../include/communication.h"
@@ -311,6 +312,21 @@ void *sync_files(){
     }
 }
 
+// Trata o envento CTRL + C
+void interruption_handler(int sig){
+     char  c;
+
+     signal(sig, SIG_IGN);
+     printf("\n\nDo you really want to quit? [y/n] ");
+     c = getchar();
+     if (c == 'y' || c == 'Y'){
+        exit_client();
+        exit(0);
+     }else
+        signal(SIGINT, interruption_handler);
+     getchar(); // Get new line character
+}
+
 int main(int argc, char const *argv[]){
     struct hostent *host;
     pthread_t sync_thread;
@@ -347,6 +363,9 @@ int main(int argc, char const *argv[]){
     // Conecta com o servidor e atualiza as portas
     if(hello(username) < 0)
         fprintf(stderr,"ERROR connecting to server\n");
+
+    // Captura o evento CTRL + C
+    signal(SIGINT, interruption_handler);
 
     printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server_cmd.ip), server_cmd.port);
 

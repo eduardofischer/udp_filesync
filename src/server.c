@@ -72,7 +72,7 @@ void *thread_client_cmd(void *thread_info){
 					list_server(socket, user_dir, addr);
                     break;
                 case EXIT:
-                    printf("📝 [%s:%d] CMD: EXIT\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
+                    printf("📝 [%s:%d] BYE: client disconnected\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
 					pthread_exit(NULL);
 
                     break;

@@ -6,6 +6,7 @@
 #include "../include/client.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
+#include "../include/aux.h"
     
 int sock_cmd, sock_sync;
 char username[64];
@@ -304,7 +305,9 @@ void *sync_files(){
         printf ("Error sync_files request_sync: %s\n", strerror(errno));
 
     while(1){
-        // use inotify to request_sync when a file changes
+        delay(1);
+        if(request_sync() < 0)
+            printf ("Error sync_files request_sync: %s\n", strerror(errno));
     }
 }
 

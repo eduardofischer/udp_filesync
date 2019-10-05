@@ -120,7 +120,7 @@ void *thread_client_sync(void *thread_info){
         if(msg.header.type == CMD){
 			switch((*cmd).code){
 				case SYNC_DIR:
-					printf("📝 [%s:%d] SYNC: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username);
+					//printf("📝 [%s:%d] SYNC: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username);
 					sync_user(socket, user_dir, addr);
 					
 					break;

@@ -175,7 +175,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 				}
 			} else if(!strcmp(server_entries[i].name, client_entries[j].name)){
 				exists_in_client = 1;
-				if(server_entries[i].last_modified < client_entries[j].last_status){
+				if(server_entries[i].last_modified < client_entries[j].last_modified){
 					// Caso o arquivo no cliente seja mais recente, adiciona à lista de uploads
 					up_count++;
 					uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
@@ -199,7 +199,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 
 			if(!strcmp(server_entries[j].name, client_entries[i].name)){
 				exists_in_server = 1;
-				if(server_entries[j].last_modified > client_entries[i].last_status){
+				if(server_entries[j].last_modified > client_entries[i].last_modified){
 					// Caso o arquivo no servidor seja mais recente, adiciona à lista de downloads
 					down_count++;
 					downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);

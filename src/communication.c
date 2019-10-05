@@ -218,7 +218,7 @@ int send_file(REMOTE_ADDR address, char *filePath){
     //Pega as estatísticas do arquivo e preenche a estrutura file_info
     stat(filePath,&file_stats);   
     strcpy(file_info.filename,filename);
-    file_info.modification_time = file_stats.st_ctime;
+    file_info.modification_time = file_stats.st_mtime;
     file_info.access_time = file_stats.st_atime;
 
     socketDataTransfer = create_udp_socket();

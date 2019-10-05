@@ -11,9 +11,6 @@ sem_t *file_is_created;
 
 
 
-
-
-
 /** 
  *  Escuta um cliente em um determinado socket 
  * */
@@ -32,7 +29,7 @@ void *thread_client_cmd(void *thread_info){
 	strcat(user_dir, "/");
 
     while(1){
-		n = recv_packet(socket, NULL, &msg);
+		n = recv_packet(socket, NULL, &msg, 0);
 
 		if (n < 0){
 			printf("ERROR recvfrom:  %s\n", strerror(errno));
@@ -108,7 +105,7 @@ void *thread_client_sync(void *thread_info){
 	strcat(user_dir, "/");
 
     while(1){
-		n = recv_packet(socket, &addr, &msg);
+		n = recv_packet(socket, &addr, &msg, 0);
 
 		if (n < 0){
 			printf("ERROR recvfrom:  %s\n", strerror(errno));
@@ -162,7 +159,7 @@ int hello(CONNECTION_INFO conn){
 	packet.header.type = HELLO;
 	memcpy(&packet.data, &conn.ports, sizeof(SERVER_PORTS_FOR_CLIENT));
 
-	return send_packet(listen_socket, conn.client.client_addr, packet);
+	return send_packet(listen_socket, conn.client.client_addr, packet, 0);
 }
 
 int new_client(CLIENT_INFO *client){
@@ -224,7 +221,7 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 
 		memcpy(&entries_pkt.data, ((char*) server_entries) + (packet_number*DATA_LENGTH), entries_pkt.header.length);
 		packet_number++;
-        n = send_packet(socket, client_addr, entries_pkt);
+        n = send_packet(socket, client_addr, entries_pkt, 0);
 
         if(n < 0){
             printf ("Error request_sync send_packet: %s\n", strerror(errno));
@@ -257,7 +254,7 @@ int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
 
 		memcpy(&entries_pkt.data, ((char*) server_entries) + (packet_number*DATA_LENGTH), entries_pkt.header.length);
 		packet_number++;
-        n = send_packet(socket, client_addr, entries_pkt);
+        n = send_packet(socket, client_addr, entries_pkt, 0);
 
         if(n < 0){
             printf ("Error list_server send_packet: %s\n", strerror(errno));

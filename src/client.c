@@ -92,7 +92,7 @@ int listServer(){
     }
 
     do {
-        n = recv_packet(sock_cmd, NULL, &recv_entries_pkt);
+        n = recv_packet(sock_cmd, NULL, &recv_entries_pkt, 0);
 
 		if (n < 0){
 			fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
@@ -155,14 +155,14 @@ int hello(char *username){
     packet.header.type = HELLO;
     strcpy((char *)&(packet.data), username);
 
-    n = send_packet(sock_cmd, server_cmd, packet);
+    n = send_packet(sock_cmd, server_cmd, packet, 0);
 
     if (n < 0){
         fprintf(stderr, "ERROR! HELLO failed\n");
         return -1;;
     }
 
-    if(recv_packet(sock_cmd, NULL, &response) < 0){
+    if(recv_packet(sock_cmd, NULL, &response, 0) < 0){
         printf("ERROR recv_packet\n");
         return -1;
     }
@@ -261,7 +261,7 @@ int request_sync(){
     }
 
     do {
-        n = recv_packet(sock_sync, NULL, &recv_entries_pkt);
+        n = recv_packet(sock_sync, NULL, &recv_entries_pkt, 0);
 		if (n < 0){
 			fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
 		} else {	//Message correctly received
@@ -330,6 +330,14 @@ void interruption_handler(int sig){
 int main(int argc, char const *argv[]){
     struct hostent *host;
     pthread_t sync_thread;
+
+    // Testing send_packet timeouts.
+    /*
+    REMOTE_ADDR addr_test;
+    PACKET packet_test;
+    int sock_test = create_udp_socket();
+    send_packet(sock_test, addr_test, packet_test, 10);
+    */
 
     if(argc < 3){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");

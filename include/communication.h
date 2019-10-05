@@ -110,9 +110,9 @@ uint16_t get_socket_port(int socket);
  *           -1 (Error)
  *           -2 (Time out)
  **/ 
-int send_packet(int socket, REMOTE_ADDR addr, PACKET packet);
+int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int usec_timeout);
 
-int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet);
+int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout);
 
 /** Envia um pacote de ACK */
 int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);

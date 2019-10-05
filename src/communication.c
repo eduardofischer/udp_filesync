@@ -4,6 +4,8 @@
 #include <utime.h>
 
 #define FILE_NAME_SIZE 255
+#define MAX_TIMEOUTS 5
+
 
 
 /**
@@ -55,7 +57,7 @@ uint16_t get_socket_port(int socket){
  *           -1 (Error)
  *           -2 (Time out)
  **/
-int send_packet(int socket, REMOTE_ADDR addr, PACKET packet){
+int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int usec_timeout){
     struct sockaddr_in dest_addr, new_addr;
     socklen_t addr_len = sizeof(new_addr);
     int n;
@@ -66,34 +68,61 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet){
     dest_addr.sin_addr.s_addr = addr.ip;
     bzero(&(dest_addr.sin_zero), 8);
 
-    n = sendto(socket, &packet, PACKET_SIZE, 0, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in));
-    if (n < 0){
-        printf("ERROR send_packet sendto: %s\n", strerror(errno));
-        return -1;
-    }
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = (__suseconds_t) usec_timeout;
 
-    n = recvfrom(socket, &response, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
-    if (n < 0 || response.header.type != ACK){
-        printf("ERROR send_packet recvfrom %s\n", strerror(errno));
-        return -1;
-    }
+    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv));
+
+    int successfully_sent = 0, n_timeouts = 0;
+    do{
+        n = sendto(socket, &packet, PACKET_SIZE, 0, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in));
+        if (n < 0){
+            printf("ERROR send_packet sendto: %s\n", strerror(errno));
+            return -1;
+        }
+
+        n = recvfrom(socket, &response, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
+        if (n < 0 || response.header.type != ACK){
+            printf("ERROR send_packet recvfrom %s\n", strerror(errno));
+            printf("Resending packet.\n");
+
+            n_timeouts++;
+        }
+        else{
+            successfully_sent = 1;
+        }
+    }while(successfully_sent == 0 && n_timeouts < MAX_TIMEOUTS);
+    
 
     return ntohs(new_addr.sin_port);
 }
 
-int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet){
+int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout){
     struct sockaddr_in new_addr;
     socklen_t addr_len = sizeof(new_addr);
     int n;
 
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = (__suseconds_t) usec_timeout;
+
+    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv));
+
     n = recvfrom(socket, packet, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
+
+    if (n < 0){
+        printf("Timeout recv_packet recvfrom %s\n", strerror(errno));
+        return -1;
+    }
+
     ack(socket, (struct sockaddr *)&new_addr, addr_len);
 
     if(addr != NULL){
         addr->ip = new_addr.sin_addr.s_addr;
         addr->port = ntohs(new_addr.sin_port);
     }
-
+    
     return n;
 }
 
@@ -143,7 +172,7 @@ int send_command(int socket, REMOTE_ADDR server, char command, char* arg){
         strcpy((*(COMMAND *) &(packet.data)).argument, "");
     };
     //Envia o pacote
-    return send_packet(socket, server, packet);
+    return send_packet(socket, server, packet, 0);
 }
 
 /**
@@ -168,7 +197,7 @@ int send_upload(int socket, REMOTE_ADDR server, FILE_INFO *file_info){
     
     //Copia file_info para o argumento de comando genérico, para não quebrar com a estrutura padrão.
     memcpy((*(COMMAND *) &(packet.data)).argument,file_info, sizeof(FILE_INFO));
-    return send_packet(socket, server, packet);
+    return send_packet(socket, server, packet, 0);
 }
 
 /** Envia o arquivo para o servidor **/
@@ -213,7 +242,7 @@ int send_file(REMOTE_ADDR address, char *filePath){
                     dataToTransfer.header.length = currentPacketLenght;
                             
                     //Enquanto o servidor não recebeu o pacote, tenta re-enviar pra ele
-                    while(send_packet(socketDataTransfer,address,dataToTransfer) < 0);
+                    while(send_packet(socketDataTransfer,address,dataToTransfer,0) < 0);
                     
                     //Tamanho restante a ser transmitido
                     sourceFileSizeRemaining -= currentPacketLenght;

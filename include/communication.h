@@ -13,6 +13,7 @@
 #include <math.h>
 #include <errno.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <sys/stat.h>
 
 

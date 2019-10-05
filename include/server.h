@@ -4,8 +4,14 @@
 #define MAX_NAME_LENGTH 50
 #define MAX_PATH_LENGTH 255
 
+#define NUM_OF_MAX_CONNECTIONS 255
 
 #include "communication.h"
+
+typedef struct client_mutex_info{
+    pthread_mutex_t sync_or_command;
+    int clients_connected;
+}CLIENT_MUTEX;
 
 typedef struct client_info{
     char username[MAX_NAME_LENGTH];

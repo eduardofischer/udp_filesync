@@ -256,13 +256,8 @@ int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
             printf ("Error list_server send_packet: %s\n", strerror(errno));
             return -1;
         }
-<<<<<<< HEAD
     } while(packet_number < n_packets);
 
-=======
-    }while(packet_number < n_packets);
-	
->>>>>>> 126290e5b418f9bbf737cc5d703f8ecaa7adf490
 	free(server_entries);
 
 	return 0;

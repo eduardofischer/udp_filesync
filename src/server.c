@@ -5,6 +5,7 @@
 #include "../include/filesystem.h"
 #include <utime.h>
 #include <semaphore.h> 
+#include <search.h>
 
 int listen_socket;
 sem_t *file_is_created;
@@ -26,6 +27,12 @@ void *thread_client_cmd(void *thread_info){
 	FILE_INFO file_info;
 	int n, socket = info.sock_cmd;
 
+	//Encontra os mutexes associados ao usuário
+	ENTRY to_search;
+	ENTRY *found;
+	to_search.key = info.client.username;
+	found = hsearch(to_search,FIND);
+
 	// Path da pasta do usuário no servidor
 	strcpy(user_dir, SERVER_DIR);	
 	strcat(user_dir, info.client.username);
@@ -44,35 +51,47 @@ void *thread_client_cmd(void *thread_info){
 
             switch((*cmd).code){
                 case UPLOAD:
+					pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
 					file_info = *((FILE_INFO*)cmd->argument);
                     printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, file_info.filename);
 					receive_file(file_info, user_dir, socket);
+					pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
                    
                     break;
                 case DOWNLOAD:
+					
                     if(strlen((*cmd).argument) > 0){
+						pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
                         printf("📝 [%s:%d] CMD: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);		
 						strcpy(download_file_path, user_dir);
 						strcat(download_file_path, cmd->argument);		
-						send_file(addr, download_file_path);			
+						send_file(addr, download_file_path);
+						pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);			
                     }else
                         printf("ERROR: download missing argument\n"); 
 
                     break;
                 case DELETE:
+					
                     if(strlen((*cmd).argument) > 0){
+						pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
                         printf("📝 [%s:%d] CMD:: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
 						delete(cmd->argument, user_dir);
+						pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
                     }else
                         printf("ERROR: delete missing argument\n");
                     
                     break;
                 case LST_SV:
+					pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
                     printf("📝 [%s:%d] CMD: LST_SV\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
 					list_server(socket, user_dir, addr);
+					pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
                     break;
                 case EXIT:
+					pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
                     printf("📝 [%s:%d] BYE: client disconnected\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
+					pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
 					pthread_exit(NULL);
 
                     break;
@@ -94,6 +113,12 @@ void *thread_client_sync(void *thread_info){
 	struct sockaddr_in cli_addr;
 	int n, socket = info.sock_sync;
 
+	//Encontra os mutexes associados ao usuário
+	ENTRY to_search;
+	ENTRY *found;
+	to_search.key = info.client.username;
+	found = hsearch(to_search,FIND);
+
 	sem_wait(file_is_created);
 	sem_destroy(file_is_created);
 
@@ -106,6 +131,8 @@ void *thread_client_sync(void *thread_info){
 	strcpy(user_dir, SERVER_DIR);	
 	strcat(user_dir, info.client.username);
 	strcat(user_dir, "/");
+
+	
 
     while(1){
 		n = recv_packet(socket, &addr, &msg);
@@ -120,8 +147,10 @@ void *thread_client_sync(void *thread_info){
         if(msg.header.type == CMD){
 			switch((*cmd).code){
 				case SYNC_DIR:
+					pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
 					//printf("📝 [%s:%d] SYNC: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username);
 					sync_user(socket, user_dir, addr);
+					pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
 					
 					break;
 				case UPLOAD:
@@ -292,6 +321,8 @@ int main(int argc, char const *argv[]){
 	REMOTE_ADDR client_addr;
 	CLIENT_INFO client_info;
 
+	hcreate(NUM_OF_MAX_CONNECTIONS);
+
 
     listen_socket = create_udp_socket();
     listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, PORT);
@@ -319,6 +350,28 @@ int main(int argc, char const *argv[]){
 			//para que  o msg.data.data do memcpy seja só o username.
 			client_info.client_addr = client_addr;
 			strcpy(client_info.username, (char *) msg.data);
+
+			ENTRY user_to_search;
+			ENTRY *user_retrieved;
+			user_to_search.key = client_info.username;
+			//Caso tenha achado um usuário, incrementa o número de usuários logados
+			if ((user_retrieved = hsearch(user_to_search,FIND)) != NULL){
+				(((CLIENT_MUTEX*)user_retrieved->data)->clients_connected)++;
+			}
+			//Caso não haja nenhum usuário
+			else{
+				//Inicializa a nova estrutura de mutex
+				CLIENT_MUTEX *new_mutex = (CLIENT_MUTEX*) malloc(sizeof(CLIENT_MUTEX));
+				new_mutex->clients_connected = 1;
+				pthread_mutex_init(&(new_mutex->sync_or_command),NULL);
+				
+				//Inicializa nova entry
+				ENTRY *user_to_add = (ENTRY*) malloc(sizeof(ENTRY));
+				user_to_add->data = (void *)new_mutex;
+				user_to_add->key = client_info.username;
+				//Adiciona no hash
+				hsearch(*user_to_add, ENTER);
+			}
 
 			n = ack(listen_socket, (struct sockaddr *)&cli_addr, clilen);
 			if(n < 0){

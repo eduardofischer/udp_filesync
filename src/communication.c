@@ -218,7 +218,7 @@ int send_file(REMOTE_ADDR address, char *filePath){
     //Pega as estatísticas do arquivo e preenche a estrutura file_info
     stat(filePath,&file_stats);   
     strcpy(file_info.filename,filename);
-    file_info.modification_time = file_stats.st_mtime;
+    file_info.modification_time = file_stats.st_ctime;
     file_info.access_time = file_stats.st_atime;
 
     socketDataTransfer = create_udp_socket();
@@ -273,6 +273,11 @@ int receive_file(FILE_INFO file_info, char *dir_path, int dataSocket){
 	int n;
 	struct utimbuf time;
 	int first_message_not_received = 1;
+    char temp_file_path[MAX_PATH_LENGTH];
+
+	strcpy(temp_file_path, dir_path);
+	strcat(temp_file_path, "~");
+	strcat(temp_file_path, file_info.filename);
 
 	//Timestamps novos
 	time.actime = file_info.access_time;
@@ -285,6 +290,9 @@ int receive_file(FILE_INFO file_info, char *dir_path, int dataSocket){
 	toBeCreated = fopen(file_path, "wb");
 	
 	if(isOpened(toBeCreated)){
+        // Remove o arquivo temporário caso exista
+        remove(temp_file_path);
+
 		do{
 			n = recvfrom(dataSocket,(void*) &received,PACKET_SIZE,0,(struct sockaddr *) &source_addr,&socket_addr_len);
 			if (n < 0){

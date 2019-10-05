@@ -162,7 +162,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 			// Caso exista um sinalizador de DELETE
 			if((server_entries[i].name)[0] == '~' && !strcmp(name_tok, client_entries[j].name)){
 				exists_in_client = 1;		
-				if(server_entries[i].last_modified > client_entries[j].last_modified){
+				if(server_entries[i].last_modified > client_entries[j].last_status){
 					// Caso o marcador no servidor seja mais recente, adiciona a lista de deletes
 					del_count++;
 					deleteList = realloc(deleteList, MAX_NAME_LENGTH * del_count);
@@ -175,7 +175,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 				}
 			} else if(!strcmp(server_entries[i].name, client_entries[j].name)){
 				exists_in_client = 1;
-				if(server_entries[i].last_modified < client_entries[j].last_modified){
+				if(server_entries[i].last_modified < client_entries[j].last_status){
 					// Caso o arquivo no cliente seja mais recente, adiciona à lista de uploads
 					up_count++;
 					uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
@@ -199,7 +199,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 
 			if(!strcmp(server_entries[j].name, client_entries[i].name)){
 				exists_in_server = 1;
-				if(server_entries[j].last_modified > client_entries[i].last_modified){
+				if(server_entries[j].last_modified > client_entries[i].last_status){
 					// Caso o arquivo no servidor seja mais recente, adiciona à lista de downloads
 					down_count++;
 					downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);

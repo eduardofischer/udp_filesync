@@ -309,7 +309,7 @@ void *sync_files(){
     fd_set rfds;
     struct timeval tv;
 
-    tv.tv_sec = 5;
+    tv.tv_sec = 0;
     tv.tv_usec = 0;
 
     fd = inotify_init();

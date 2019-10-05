@@ -298,7 +298,7 @@ int request_sync(){
     //printf("Server Entries: %d\n", n_server_ent);
 
     compare_entry_diff(server_entries, entries, n_server_ent, n_entries, &list);
-
+ 
 	for(i=0; i<list.n_downloads; i++){
         strcpy(file_path, LOCAL_DIR);
         downloadFile(sock_sync, (char *)(list.list + i * MAX_NAME_LENGTH), file_path, server_sync);
@@ -309,6 +309,12 @@ int request_sync(){
         strcpy(file_path, LOCAL_DIR);
         strcat(file_path, (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
         uploadFile(file_path, server_sync);
+        //printf("- %s uploaded!\n", (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
+    }
+
+    for(i=0; i<list.n_deletes; i++){
+        delete_file_local((char *)(list.list + (list.n_downloads + list.n_uploads + i) * MAX_NAME_LENGTH));
+        //printf("- %s deleted!\n", (char *)(list.list + (list.n_downloads + list.n_uploads + i) * MAX_NAME_LENGTH));
     }
 
     free(entries);

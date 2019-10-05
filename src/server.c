@@ -165,7 +165,8 @@ void *thread_client_sync(void *thread_info){
                 case DELETE:
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] SYNC: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
-						delete(cmd->argument, user_dir);
+						if(delete(cmd->argument, user_dir) <0)
+							printf("Error deleting file : %s\n", strerror(errno));
                     }else
                         printf("ERROR: delete missing argument\n");
                     
@@ -292,26 +293,28 @@ int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	return 0;
 }
 
-int delete(char *file_name, char *client_folder_path){
+int delete(char *file_name, char *client_dir_path){
 	FILE *temp_file;
 	//Inicialização do nome do arquivo temporário
-	char temp_file_name[MAX_PATH_LENGTH];
-	strcpy(temp_file_name, client_folder_path);
-	strcat(temp_file_name,"/.~");
+	char file_path[FILE_NAME_SIZE];
+	char temp_file_path[MAX_PATH_LENGTH];
+
+	strcpy(temp_file_path, client_dir_path);
+	strcat(temp_file_path,"~");
+	strcat(temp_file_path,file_name);
 	
-	char private_path_copy[FILE_NAME_SIZE];
-	strcpy(private_path_copy, client_folder_path);
-	strcat(private_path_copy, "/");
-	
-	char *target = strcat(private_path_copy, file_name);
-	if(remove(target) == 0){
-		strcat(temp_file_name,file_name);
+	strcpy(file_path, client_dir_path);
+	strcat(file_path, file_name);
+
+	if(remove(file_path) == 0){	
 		//Apenas cria o arquivo vazio
-		temp_file = fopen(temp_file_name,"wb");
+		temp_file = fopen(temp_file_path, "wb");
 		fclose(temp_file);
 		return SUCCESS;
-	}
-	else{
+	} else if(remove(temp_file_path) == 0){
+		// Arquivo temporário removido
+		return SUCCESS;
+	} else{
 		printf("\nError deleting file.\n");
 		return -1;
 	}

@@ -150,16 +150,18 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 	char *deleteList = malloc(MAX_NAME_LENGTH);
 	int down_count = 0, up_count = 0, del_count = 0, exists_in_client, exists_in_server;
 	int i, j;
+	char temp_name[MAX_NAME_LENGTH];
 	char *name_tok;
 
 	for(i=0; i < n_server_ent; i++){
 		exists_in_client = 0;
 		for(j=0; j < n_client_ent; j++){
-			name_tok = strtok(server_entries[i].name, "~");
-			name_tok = strtok(NULL, "~");
+			strcpy(temp_name, server_entries[i].name);
+			name_tok = strtok(temp_name, "~");
+
 			// Caso exista um sinalizador de DELETE
-			if(server_entries[i].name[1] == '~' && !strcmp(name_tok, client_entries[j].name)){
-				exists_in_client = 1;
+			if((server_entries[i].name)[0] == '~' && !strcmp(name_tok, client_entries[j].name)){
+				exists_in_client = 1;		
 				if(server_entries[i].last_modified > client_entries[j].last_modified){
 					// Caso o marcador no servidor seja mais recente, adiciona a lista de deletes
 					del_count++;
@@ -181,7 +183,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 				}
 			}
 		}
-		if(!exists_in_client){
+		if((server_entries[i].name)[0] != '~' && !exists_in_client){
 			// Caso o arquivo não exista do lado do cliente, adiciona à lista de downloads
 			down_count++;
 			downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
@@ -192,6 +194,9 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 	for(i=0; i < n_client_ent; i++){
 		exists_in_server = 0;
 		for(j=0; j < n_server_ent; j++){
+			strcpy(temp_name, server_entries[j].name);
+			name_tok = strtok(temp_name, "~");
+
 			if(!strcmp(server_entries[j].name, client_entries[i].name)){
 				exists_in_server = 1;
 				if(server_entries[j].last_modified > client_entries[i].last_modified){
@@ -200,7 +205,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 					downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
 					strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[j].name);
 				}
-			} else if(server_entries[j].name[1] == '~')
+			} else if(server_entries[j].name[0] == '~' && !strcmp(name_tok, client_entries[i].name))
 				exists_in_server = 1;
 		}
 		if(!exists_in_server){

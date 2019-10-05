@@ -320,7 +320,7 @@ int receive_file(FILE_INFO file_info, char *dir_path, int dataSocket){
 		return SUCCESS;
 	}
 	else{
-		printf("Erro ao criar arquivo em função de upload, tentou-se criar o arquivo: %s", file_path);
+		printf("Erro ao criar arquivo em receive_file, tentou-se criar o arquivo: %s", file_path);
 		return ERR_OPEN_FILE;
 	}
 }

@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include  <signal.h>
 #include <unistd.h>
+#include <sys/inotify.h>
 #include "../include/client.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
@@ -51,20 +52,19 @@ int downloadFile(int socket, char *filename, char *dir_path, REMOTE_ADDR remote)
     //Após recebida a mensagem acessa as informações do arquivo
     cmd = (COMMAND *) &msg.data;
     file_info = *((FILE_INFO*)cmd->argument);
-    printf("%s",file_info.filename);
     //Recebe o arquivo informado em file_info.
     return receive_file(file_info, dir_path, socket);
 }
 
 /** Exclui um arquivo de sync_dir **/
-int deleteFile(char* fileName){
+int deleteFile(char* fileName, REMOTE_ADDR remote){
     int socketDataTransfer;
     int response;
 
     socketDataTransfer = create_udp_socket();
 
     if (socketDataTransfer != ERR_SOCKET){
-        response = send_command(socketDataTransfer, server_cmd, DELETE, fileName);
+        response = send_command(socketDataTransfer, remote, DELETE, fileName);
         
         if(response >= 0){
             return SUCCESS;
@@ -176,14 +176,14 @@ int hello(char *username){
 }
 
 void print_cli_options(){
-    printf("Available commands:\n\n");
+    printf("\nAvailable commands:\n\n");
     printf("\t📤  upload <path/filename.ext>\n");
     printf("\t📥  download <filename.ext>\n");
     printf("\t❌  delete <filename.ext>\n");
     printf("\t📃  list_server\n");
     printf("\t📃  list_client\n");
     printf("\t📁  get_sync_dir\n");
-    printf("\t🏃  exit\n\n");
+    printf("\t🏃  exit\n");
 }
 
 void run_cli(int socket){
@@ -195,7 +195,8 @@ void run_cli(int socket){
 
     int session_alive = 1;
     do{
-        printf("udp_filesync > ");
+        printf("\nudp_filesync > ");
+
         fgets(user_input, COMMAND_SIZE, stdin);
 
         user_cmd = strtok(user_input, " ");
@@ -216,7 +217,7 @@ void run_cli(int socket){
                 printf("Error downloading file.\n");
             }
         }else if(!strcmp(user_cmd, "delete")) {
-            if (deleteFile(user_arg) == -1){
+            if (deleteFile(user_arg, server_cmd) == -1){
                 printf("Error deleting file.\n");
             }
         }else if(!strcmp(user_cmd, "list_server\n")){
@@ -302,11 +303,40 @@ int request_sync(){
 }
 
 void *sync_files(){
-    if(request_sync() < 0)
-        printf ("Error sync_files request_sync: %s\n", strerror(errno));
+    int fd, wd, len, i = 0;
+    int buf_len = (sizeof(struct inotify_event) + 16) * MAX_N_OF_FILES;
+    char buf[buf_len];
+    fd_set rfds;
+    struct timeval tv;
+
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+
+    fd = inotify_init();
+    if(fd < 0)
+        printf ("Error creating inotify fd: %s\n", strerror(errno));
+
+    wd = inotify_add_watch(fd, "sync_dir", IN_DELETE | IN_MOVED_FROM);
+    if(wd < 0)
+        printf ("Error creating inotify watch: %s\n", strerror(errno));
 
     while(1){
+        i = 0;
+        FD_ZERO(&rfds);
+        FD_SET(fd, &rfds);
+
         delay(1);
+
+        if(select(fd + 1, &rfds, NULL, NULL, &tv) > 0 && FD_ISSET(fd, &rfds)){
+            len = read(fd, buf, buf_len);
+            while (i < len) {
+                struct inotify_event *event;
+                event = (struct inotify_event *) &buf[i];
+                deleteFile(event->name, server_sync);
+                i += sizeof (struct inotify_event) + event->len;
+            }
+        }
+        
         if(request_sync() < 0)
             printf ("Error sync_files request_sync: %s\n", strerror(errno));
     }
@@ -314,17 +344,9 @@ void *sync_files(){
 
 // Trata o envento CTRL + C
 void interruption_handler(int sig){
-     char  c;
-
-     signal(sig, SIG_IGN);
-     printf("\n\nDo you really want to quit? [y/n] ");
-     c = getchar();
-     if (c == 'y' || c == 'Y'){
-        exit_client();
-        exit(0);
-     }else
-        signal(SIGINT, interruption_handler);
-     getchar(); // Get new line character
+    signal(sig, SIG_IGN);
+    exit_client();
+    exit(0);
 }
 
 int main(int argc, char const *argv[]){
@@ -375,7 +397,7 @@ int main(int argc, char const *argv[]){
     // Captura o evento CTRL + C
     signal(SIGINT, interruption_handler);
 
-    printf("📡 Client connected to %s:%d\n\n", inet_ntoa(*(struct in_addr *) &server_cmd.ip), server_cmd.port);
+    printf("📡 Client connected to %s:%d\n", inet_ntoa(*(struct in_addr *) &server_cmd.ip), server_cmd.port);
 
     pthread_create(&sync_thread, NULL, sync_files, NULL);
 

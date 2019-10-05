@@ -12,7 +12,7 @@ int uploadFile(char* filePath, REMOTE_ADDR remote);
 int downloadFile(int socket, char *filename, char *dir_path, REMOTE_ADDR remote);
 
 /** Exclui um arquivo de sync_dir **/
-int deleteFile(char* fileName);
+int deleteFile(char* fileName, REMOTE_ADDR remote);
 
 /** Lista os arquivos salvos no servidor associados ao usuário **/
 int listServer();

@@ -23,7 +23,7 @@ int mkdir_recursive(char *dir){
             *p = '/';
         }
     if(mkdir(tmp, S_IRWXU) < 0){
-        if(errno = 17){
+        if(errno == 17){
             return 1;
         }else
             return -1;

@@ -46,22 +46,22 @@ void *thread_client_cmd(void *thread_info){
 
             switch((*cmd).code){
                 case UPLOAD:
-					pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+					pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
 					file_info = *((FILE_INFO*)cmd->argument);
                     printf("📝 [%s:%d] CMD: UPLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, file_info.filename);
 					receive_file(file_info, user_dir, socket);
-					pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+					pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                    
                     break;
                 case DOWNLOAD:
 					
                     if(strlen((*cmd).argument) > 0){
-						pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+						pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                         printf("📝 [%s:%d] CMD: DOWNLOAD %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);		
 						strcpy(download_file_path, user_dir);
 						strcat(download_file_path, cmd->argument);		
 						send_file(addr, download_file_path);
-						pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);			
+						pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));			
                     }else
                         printf("ERROR: download missing argument\n"); 
 
@@ -69,24 +69,24 @@ void *thread_client_cmd(void *thread_info){
                 case DELETE:
 					
                     if(strlen((*cmd).argument) > 0){
-						pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+						pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                         printf("📝 [%s:%d] CMD: DELETE %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, cmd->argument);
 						delete(cmd->argument, user_dir);
-						pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+						pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                     }else
                         printf("ERROR: delete missing argument\n");
                     
                     break;
                 case LST_SV:
-					pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+					pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                     printf("📝 [%s:%d] CMD: LST_SV\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
 					list_server(socket, user_dir, addr);
-					pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+					pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                     break;
                 case EXIT:
-					pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+					pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                     printf("📝 [%s:%d] BYE: client disconnected\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
-					pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+					pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
 					pthread_exit(NULL);
 
                     break;
@@ -140,10 +140,10 @@ void *thread_client_sync(void *thread_info){
         if(msg.header.type == CMD){
 			switch((*cmd).code){
 				case SYNC_DIR:
-					pthread_mutex_lock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+					pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
 					//printf("📝 [%s:%d] SYNC: SYNC_DIR - Iniciando sincronização de %s\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username);
 					sync_user(socket, user_dir, addr);
-					pthread_mutex_unlock(&((CLIENT_MUTEX*)found->data)->sync_or_command);
+					pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
 					
 					break;
 				case UPLOAD:

@@ -126,6 +126,8 @@ int listServer(){
     else
         printf("Server directory is empty.\n");
 
+    free(server_entries);
+
     return 0;
 };
 
@@ -142,6 +144,7 @@ int list_client(){
     else{
         printf("Client sync directory is empty.\n");
     }
+    
     free(entries);
 
     return n_entries;

@@ -246,7 +246,7 @@ void print_dir_status(DIR_ENTRY **entries, int n){
 
 char **splitPath(char *name, int *size) {
 	int i = 0, n = 0;
-	char *nameCopy = malloc(strlen(name) + 1);
+	char nameCopy[strlen(name) + 1];
   	strcpy(nameCopy, name);
 	// Conta ocorrencias
 	if (strlen(nameCopy) > 0 && nameCopy[0] != '/')
@@ -281,5 +281,6 @@ char **splitPath(char *name, int *size) {
 		free(strings);
 		return NULL;
 	}
+
 	return strings;
 }

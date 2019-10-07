@@ -8,7 +8,7 @@
 #include <search.h>
 
 int listen_socket;
-sem_t *file_is_created;
+sem_t file_is_created;
 
 /** 
  *  Escuta um cliente em um determinado socket 
@@ -114,8 +114,8 @@ void *thread_client_sync(void *thread_info){
 	to_search.key = info.client.username;
 	found = hsearch(to_search,FIND);
 
-	sem_wait(file_is_created);
-	sem_destroy(file_is_created);
+	sem_wait(&file_is_created);
+	sem_destroy(&file_is_created);
 
 	cli_addr.sin_family = AF_INET;
     cli_addr.sin_port = htons(addr.port);
@@ -343,8 +343,7 @@ int main(int argc, char const *argv[]){
     while (1) {
 		n = recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
 
-		file_is_created = (sem_t *) malloc(sizeof (sem_t));
-		sem_init(file_is_created,0,0);
+		sem_init(&file_is_created, 0, 0);
 		
 		if (n < 0) 
 			printf("ERROR on recvfrom\n");
@@ -368,16 +367,16 @@ int main(int argc, char const *argv[]){
 			//Caso não haja nenhum usuário
 			else{
 				//Inicializa a nova estrutura de mutex
-				CLIENT_MUTEX *new_mutex = (CLIENT_MUTEX*) malloc(sizeof(CLIENT_MUTEX));
-				new_mutex->clients_connected = 1;
-				pthread_mutex_init(&(new_mutex->sync_or_command),NULL);
+				CLIENT_MUTEX new_mutex;
+				new_mutex.clients_connected = 1;
+				pthread_mutex_init(&(new_mutex.sync_or_command), NULL);
 				
 				//Inicializa nova entry
-				ENTRY *user_to_add = (ENTRY*) malloc(sizeof(ENTRY));
-				user_to_add->data = (void *)new_mutex;
-				user_to_add->key = client_info.username;
+				ENTRY user_to_add;
+				user_to_add.data = (void *) &new_mutex;
+				user_to_add.key = client_info.username;
 				//Adiciona no hash
-				hsearch(*user_to_add, ENTER);
+				hsearch(user_to_add, ENTER);
 			}
 
 			n = ack(listen_socket, (struct sockaddr *)&cli_addr, clilen);
@@ -395,7 +394,7 @@ int main(int argc, char const *argv[]){
 			if (create_user_dir((char *) &(msg.data)) < 0) 
 				exit(0);
 			
-			sem_post(file_is_created);
+			sem_post(&file_is_created);
 			
 			printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port,(char *) &(msg.data));
 		} else {

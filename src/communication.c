@@ -132,7 +132,13 @@ int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout)
 int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen){
     PACKET packet;
     int n;
+
     packet.header.type = ACK;
+    packet.header.seqn = 0;
+    packet.header.total_size = 1;
+    packet.header.length = 0;
+
+    memset(packet.data, 0, DATA_LENGTH);
 
     n = sendto(socket, &packet, sizeof(PACKET), 0, (struct sockaddr *)cli_addr, clilen);
 

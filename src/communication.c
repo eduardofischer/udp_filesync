@@ -3,11 +3,6 @@
 #include "../include/filesystem.h"
 #include <utime.h>
 
-#define FILE_NAME_SIZE 255
-#define MAX_TIMEOUTS 5
-
-
-
 /**
  *  Inicializa um socket UDP
  * */
@@ -84,7 +79,7 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int usec_timeout){
 
         n = recvfrom(socket, &response, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
         if (n < 0 || response.header.type != ACK){
-            printf("ERROR send_packet recvfrom %s\n", strerror(errno));
+            printf("\nERROR send_packet recvfrom %s\n", strerror(errno));
             printf("Resending packet.\n");
 
             n_timeouts++;
@@ -146,23 +141,9 @@ int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen){
 }
 
 /** 
- *  Envia um pacote de ERR
- * */
-int err(int socket, struct sockaddr *cli_addr, socklen_t clilen, char *err_msg){
-    PACKET packet;
-    int n;
-    packet.header.type = ERR;
-    strcpy((char *)&(packet.data), err_msg);
-
-    n = sendto(socket, &packet, sizeof(PACKET), 0, (struct sockaddr *)cli_addr, clilen);
-
-    return n;
-}
-
-/** 
  *  Envia um comando genérico ao servidor e aguarda pelo ack do mesmo 
  * */
-int send_command(int socket, REMOTE_ADDR server, char command, char* arg){
+int send_command(int socket, REMOTE_ADDR server, char command, char* arg, int usec_timeout){
     PACKET packet;
 
     //Prepara o pacote de comando
@@ -178,7 +159,7 @@ int send_command(int socket, REMOTE_ADDR server, char command, char* arg){
         strcpy((*(COMMAND *) &(packet.data)).argument, "");
     };
     //Envia o pacote
-    return send_packet(socket, server, packet, 0);
+    return send_packet(socket, server, packet, usec_timeout);
 }
 
 /**
@@ -270,26 +251,21 @@ int send_file(REMOTE_ADDR address, char *filePath){
 
 int receive_file(FILE_INFO file_info, char *dir_path, int dataSocket){
 	FILE *toBeCreated;
-	struct sockaddr_in source_addr;
-	socklen_t socket_addr_len = sizeof(source_addr);
 	char file_path[MAX_PATH_LENGTH];
-	int last_received_packet;
-	int last_packet;
-	PACKET received;
-	int n;
-	struct utimbuf time;
-	int first_message_not_received = 1;
     char temp_file_path[MAX_PATH_LENGTH];
+	int last_received_packet, final_packet, n, first_message_not_received = 1;
+	PACKET received;
+	struct utimbuf time;
 
 	strcpy(temp_file_path, dir_path);
 	strcat(temp_file_path, "~");
 	strcat(temp_file_path, file_info.filename);
 
-	//Timestamps novos
+	// Timestamps novos
 	time.actime = file_info.access_time;
 	time.modtime = file_info.modification_time;
 
-	//Prepare archive path
+	// Mount file path
 	strcpy(file_path, dir_path);
 	strcat(file_path, file_info.filename);
 	
@@ -300,32 +276,27 @@ int receive_file(FILE_INFO file_info, char *dir_path, int dataSocket){
         remove(temp_file_path);
 
 		do{
-			n = recvfrom(dataSocket,(void*) &received,PACKET_SIZE,0,(struct sockaddr *) &source_addr,&socket_addr_len);
+            n = recv_packet(dataSocket, NULL, &received, 0);
 			if (n < 0){
-				printf("Error receiving the message");
-				err(dataSocket, (struct sockaddr *) &source_addr, socket_addr_len, "Error receiving the message");
+				printf("Error recv_packet at receive_file: %s", strerror(errno));
 			}
-			else{//Messace correctly received
-				ack(dataSocket,(struct sockaddr *) &source_addr,socket_addr_len); //Got your message 
+			else{ //Message correctly received
 				first_message_not_received = 0; //The first message was received
 				write_packet_to_the_file(&received,toBeCreated);
+                final_packet = received.header.total_size - 1;
+			    last_received_packet = received.header.seqn;
 			}
-			last_packet = received.header.total_size - 1;
-			last_received_packet = received.header.seqn;
-
 		}while(first_message_not_received);
 
 	
-		while(last_received_packet < last_packet){
-			n = recvfrom(dataSocket,(void*) &received,PACKET_SIZE,0,(struct sockaddr *) &source_addr,&socket_addr_len);
-			if (n >= 0){
-				ack(dataSocket,(struct sockaddr *) &source_addr,socket_addr_len); //Got your message
-				write_packet_to_the_file(&received,toBeCreated);
-				last_received_packet = received.header.seqn;
-			}
-			else{
-				err(dataSocket, (struct sockaddr *) &source_addr, socket_addr_len, "Error receiving the message");
-			}
+		while(last_received_packet < final_packet){
+			n = recv_packet(dataSocket, NULL, &received, 0);
+			if (n < 0){
+				printf("Error recv_packet at receive_file: %s", strerror(errno));
+			} else{
+                write_packet_to_the_file(&received,toBeCreated);
+			    last_received_packet = received.header.seqn;
+            }
 		}
 		
 		fclose(toBeCreated);

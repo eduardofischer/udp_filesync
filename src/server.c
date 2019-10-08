@@ -352,7 +352,7 @@ int main(int argc, char const *argv[]){
     if(listen_socket < 0)
         return -1;
  
-    memset(&cli_addr, 0, sizeof(cli_addr));
+    memset(&cli_addr, 0, sizeof(struct sockaddr_in));
     clilen = sizeof(struct sockaddr_in);
 
     while (1) {
@@ -388,7 +388,7 @@ int main(int argc, char const *argv[]){
 				new_mutex.clients_connected = 1;		
 				pthread_mutex_init(&(new_mutex.sync_or_command), NULL);
 
-				user_to_add = malloc(sizeof(user_to_add));
+				user_to_add = malloc(sizeof(ENTRY));
 
 				// Aloca novas variáveis para os novos clientes
 				user_to_add->data = malloc(sizeof(new_mutex));

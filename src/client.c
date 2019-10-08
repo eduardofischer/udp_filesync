@@ -37,21 +37,20 @@ int uploadFile(char* filePath, REMOTE_ADDR remote){
 int downloadFile(int socket, char *filename, char *dir_path, REMOTE_ADDR remote){
     int n;
     PACKET msg;
-    struct sockaddr_in cli_addr;
-	socklen_t clilen = sizeof(cli_addr);
     FILE_INFO file_info;
     COMMAND *cmd;
 
     //Envia um comando de download
-    send_command(socket, remote, DOWNLOAD, filename);
+    send_command(socket, remote, DOWNLOAD, filename, 0);
+
     //Espera pelas mensagens contendo as informações do arquivo (tempos)
     do{
-        n = recvfrom(socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
-    }while(n < 0);
-    ack(socket,(struct sockaddr*)&cli_addr, clilen);
+        n = recv_packet(socket, NULL, &msg, 0);
+    } while(n < 0);
     //Após recebida a mensagem acessa as informações do arquivo
     cmd = (COMMAND *) &msg.data;
     file_info = *((FILE_INFO*)cmd->argument);
+
     //Recebe o arquivo informado em file_info.
     return receive_file(file_info, dir_path, socket);
 }
@@ -64,7 +63,7 @@ int deleteFile(char* fileName, REMOTE_ADDR remote){
     socketDataTransfer = create_udp_socket();
 
     if (socketDataTransfer != ERR_SOCKET){
-        response = send_command(socketDataTransfer, remote, DELETE, fileName);
+        response = send_command(socketDataTransfer, remote, DELETE, fileName, 0);
         
         if(response >= 0){
             return SUCCESS;
@@ -100,7 +99,7 @@ int listServer(){
     int n_server_ent;
     PACKET recv_entries_pkt;
 
-    if(send_command(sock_cmd, server_cmd, LST_SV, NULL) < 0){
+    if(send_command(sock_cmd, server_cmd, LST_SV, NULL, 0) < 0){
         printf("ERROR sending list_server cmd: %s\n", strerror(errno));
         return -1;
     }
@@ -157,7 +156,7 @@ int getSyncDir(){
 
 /** Fecha a sessão com o servidor **/
 int exit_client(){
-    return send_command(sock_cmd, server_cmd, EXIT, NULL);
+    return send_command(sock_cmd, server_cmd, EXIT, NULL, 1);
 };
 
 /** 
@@ -273,7 +272,7 @@ int request_sync(){
 
     n_entries = get_dir_status(LOCAL_DIR, &entries);
 
-    if(send_command(sock_sync, server_sync, SYNC_DIR, NULL) < 0){
+    if(send_command(sock_sync, server_sync, SYNC_DIR, NULL, 0) < 0){
         printf("ERROR sending sync cmd: %s\n", strerror(errno));
         return -1;
     }

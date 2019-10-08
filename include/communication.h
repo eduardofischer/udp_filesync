@@ -16,8 +16,9 @@
 #include <semaphore.h>
 #include <sys/stat.h>
 
-
 #define MAX_NAME_LENGTH 50
+#define FILE_NAME_SIZE 255
+#define MAX_TIMEOUTS 3
 
 #define PORT 4000
 
@@ -119,14 +120,9 @@ int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout)
 int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);
 
 /** 
- *  Envia um pacote de ERR
- * */
-int err(int socket, struct sockaddr *cli_addr, socklen_t clilen, char *err_msg);
-
-/** 
  *  Envia um comando genérico ao servidor e aguarda pelo ack do mesmo 
  * */
-int send_command(int socket, REMOTE_ADDR server, char command, char* arg);
+int send_command(int socket, REMOTE_ADDR server, char command, char* arg, int usec_timeout);
 
 /** 
  *  Envia um comando de upload ao servidor e aguarda pelo ack do mesmo 

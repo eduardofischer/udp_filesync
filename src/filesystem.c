@@ -180,6 +180,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 					up_count++;
 					uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
 					strcpy((char*)(uploadList + (up_count - 1) * MAX_NAME_LENGTH), server_entries[i].name);
+					printf("%s mais recente no cliente, fazendo upload\n", server_entries[i].name);
 				}
 			}
 		}
@@ -188,6 +189,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 			down_count++;
 			downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
 			strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[i].name);
+			printf("%s não existe no cliente, fazendo download\n", server_entries[i].name);
 		}
 	}
 
@@ -204,6 +206,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 					down_count++;
 					downloadList = realloc(downloadList, MAX_NAME_LENGTH * down_count);
 					strcpy((char*)(downloadList + (down_count-1) * MAX_NAME_LENGTH), server_entries[j].name);
+					printf("%s mais recente no servidor, fazendo download\n", server_entries[j].name);
 				}
 			} else if(server_entries[j].name[0] == '~' && !strcmp(name_tok, client_entries[i].name))
 				exists_in_server = 1;
@@ -213,6 +216,7 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 			up_count++;
 			uploadList = realloc(uploadList, MAX_NAME_LENGTH * up_count);
 			strcpy((char*)(uploadList + (up_count - 1) * MAX_NAME_LENGTH), client_entries[i].name);
+			printf("%s não existe no servidor, fazendo upload\n", client_entries[i].name);
 		}
 	}
 

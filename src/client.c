@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include  <signal.h>
+#include <signal.h>
 #include <unistd.h>
 #include <sys/inotify.h>
 #include <readline/readline.h>
@@ -343,27 +343,7 @@ int request_sync(){
 
 	n_server_ent = server_length / sizeof(DIR_ENTRY);
 
-    //printf("Server Entries: %d\n", n_server_ent);
-
     compare_entry_diff(server_entries, entries, n_server_ent, n_entries, &list);
- 
-	// for(i=0; i<list.n_downloads; i++){
-    //     strcpy(file_path, LOCAL_DIR);
-    //     downloadFile(sock_sync, (char *)(list.list + i * MAX_NAME_LENGTH), file_path, server_sync);
-    //     printf("- %s downloaded!\n", (char *)(list.list + i * MAX_NAME_LENGTH));
-    // }
-		
-	// for(i=0; i<list.n_uploads; i++){
-    //     strcpy(file_path, LOCAL_DIR);
-    //     strcat(file_path, (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
-    //     uploadFile(file_path, server_sync);
-    //     printf("- %s uploaded!\n", (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
-    // }
-
-    // for(i=0; i<list.n_deletes; i++){
-    //     delete_file_local((char *)(list.list + (list.n_downloads + list.n_uploads + i) * MAX_NAME_LENGTH));
-    //     printf("- %s deleted!\n", (char *)(list.list + (list.n_downloads + list.n_uploads + i) * MAX_NAME_LENGTH));
-    // }
 
     if(list.n_downloads > 0){
         strcpy(file_path, LOCAL_DIR);
@@ -435,7 +415,7 @@ int main(int argc, char const *argv[]){
 
     if(argc < 3){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");
-        fprintf(stderr, "Usage: client <username> <server_ip_address>\n");
+        fprintf(stderr, "Usage: client <username> <server_ip_address> [<port>]\n");
         exit(0);
     }
 
@@ -450,7 +430,11 @@ int main(int argc, char const *argv[]){
     strcpy((char *) username, argv[1]);
     server_cmd.ip = *(unsigned long *) host->h_addr;
     server_sync.ip = *(unsigned long *) host->h_addr;
-    server_cmd.port = PORT;
+
+    if(argc > 3)
+        server_cmd.port = atoi(argv[3]);
+    else
+        server_cmd.port = PORT; 
 
     if((sock_cmd = create_udp_socket()) < 0){
         fprintf(stderr,"ERROR opening socket\n");

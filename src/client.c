@@ -266,7 +266,7 @@ int request_sync(){
     DIR_ENTRY *entries = malloc(sizeof(DIR_ENTRY));
     DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
     int n_entries, n_packets, n, last_recv_packet, server_length = 0;
-    int n_server_ent, i;
+    int n_server_ent;
     PACKET recv_entries_pkt;
     SYNC_LIST list;
     char file_path[MAX_PATH_LENGTH];
@@ -302,22 +302,33 @@ int request_sync(){
 
     compare_entry_diff(server_entries, entries, n_server_ent, n_entries, &list);
  
-	for(i=0; i<list.n_downloads; i++){
-        strcpy(file_path, LOCAL_DIR);
-        downloadFile(sock_sync, (char *)(list.list + i * MAX_NAME_LENGTH), file_path, server_sync);
-        printf("- %s downloaded!\n", (char *)(list.list + i * MAX_NAME_LENGTH));
-    }
+	// for(i=0; i<list.n_downloads; i++){
+    //     strcpy(file_path, LOCAL_DIR);
+    //     downloadFile(sock_sync, (char *)(list.list + i * MAX_NAME_LENGTH), file_path, server_sync);
+    //     printf("- %s downloaded!\n", (char *)(list.list + i * MAX_NAME_LENGTH));
+    // }
 		
-	for(i=0; i<list.n_uploads; i++){
-        strcpy(file_path, LOCAL_DIR);
-        strcat(file_path, (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
-        uploadFile(file_path, server_sync);
-        printf("- %s uploaded!\n", (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
-    }
+	// for(i=0; i<list.n_uploads; i++){
+    //     strcpy(file_path, LOCAL_DIR);
+    //     strcat(file_path, (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
+    //     uploadFile(file_path, server_sync);
+    //     printf("- %s uploaded!\n", (char *)(list.list + (list.n_downloads + i) * MAX_NAME_LENGTH));
+    // }
 
-    for(i=0; i<list.n_deletes; i++){
-        delete_file_local((char *)(list.list + (list.n_downloads + list.n_uploads + i) * MAX_NAME_LENGTH));
-        printf("- %s deleted!\n", (char *)(list.list + (list.n_downloads + list.n_uploads + i) * MAX_NAME_LENGTH));
+    // for(i=0; i<list.n_deletes; i++){
+    //     delete_file_local((char *)(list.list + (list.n_downloads + list.n_uploads + i) * MAX_NAME_LENGTH));
+    //     printf("- %s deleted!\n", (char *)(list.list + (list.n_downloads + list.n_uploads + i) * MAX_NAME_LENGTH));
+    // }
+
+    if(list.n_downloads > 0){
+        strcpy(file_path, LOCAL_DIR);
+        downloadFile(sock_sync, (char *)(list.list + 0 * MAX_NAME_LENGTH), file_path, server_sync);
+    } else if(list.n_uploads > 0){
+        strcpy(file_path, LOCAL_DIR);
+        strcat(file_path, (char *)(list.list + (list.n_downloads + 0) * MAX_NAME_LENGTH));
+        uploadFile(file_path, server_sync);
+    } else if(list.n_deletes > 0){
+        delete_file_local((char *)(list.list + (list.n_downloads + list.n_uploads + 0) * MAX_NAME_LENGTH));
     }
 
     free(list.list);

@@ -235,17 +235,24 @@ void compare_entry_diff(DIR_ENTRY *server_entries, DIR_ENTRY *client_entries, in
 }
 
 void print_dir_status(DIR_ENTRY **entries, int n){
-    int i;
+    int i, only_temp_files = 1;
 
     printf("\n");
     for(i=0; i<n; i++){
-        printf("-> %s\n", (*entries)[i].name);
-        printf("    size: %ldB\n", (*entries)[i].size);
-        printf("    last modified(mtime): %s", ctime(&(*entries)[i].last_modified));
-		printf("    last accessed(atime): %s", ctime(&(*entries)[i].last_access));
-		printf("    last status change(ctime): %s", ctime(&(*entries)[i].last_status));
-		printf("\n");
+		if((*entries)[i].name[0] != '~'){
+			printf("-> %s\n", (*entries)[i].name);
+			printf("    size: %ldB\n", (*entries)[i].size);
+			printf("    last modified(mtime): %s", ctime(&(*entries)[i].last_modified));
+			printf("    last accessed(atime): %s", ctime(&(*entries)[i].last_access));
+			printf("    last status change(ctime): %s", ctime(&(*entries)[i].last_status));
+			//printf("\n");
+			only_temp_files = 0;
+		}
     }
+	
+	if(only_temp_files){
+		printf("Server folder is empty.\n");
+	}
 }
 
 void get_filename_from_path(char *path, char *filename){

@@ -5,6 +5,8 @@
 #include  <signal.h>
 #include <unistd.h>
 #include <sys/inotify.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include "../include/client.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
@@ -87,7 +89,6 @@ int delete_file_local(char* file_name){
 		return SUCCESS;
 	}
 	else{
-		printf("\nError deleting file.\n");
 		return -1;
 	}
 };
@@ -120,8 +121,10 @@ int listServer(){
 
     n_server_ent = server_length / sizeof(DIR_ENTRY);
 
-    if((strlen(server_entries[0].name)) > 0)
+    if((strlen(server_entries[0].name)) > 0){
+        printf("\n## PRINTING SERVER DIRECTORY ##");
         print_dir_status(&server_entries, n_server_ent);
+    }
     else
         printf("Server directory is empty.\n");
 
@@ -138,6 +141,7 @@ int list_client(){
     n_entries = get_dir_status(LOCAL_DIR, &entries);
     
     if(n_entries > 0){
+        printf("\n## PRINTING CLIENT DIRECTORY ##");
         print_dir_status(&entries, n_entries);
     }
     else{
@@ -151,7 +155,10 @@ int list_client(){
 
 /** Cria o diretório “sync_dir” e inicia as atividades de sincronização **/
 int getSyncDir(){
-    return -1;
+    if(create_local_dir() < 0)
+        return -1;
+    else
+        return SUCCESS;    
 };
 
 /** Fecha a sessão com o servidor **/
@@ -198,30 +205,70 @@ void print_cli_options(){
     printf("\t❌  delete <filename.ext>\n");
     printf("\t📃  list_server\n");
     printf("\t📃  list_client\n");
-    printf("\t📁  get_sync_dir\n");
     printf("\t🏃  exit\n");
+}
+
+// Next three definitions are necessary for command completion.
+char *cmds[] = {
+    "upload",
+    "download",
+    "delete",
+    "list_server",
+    "list_client",
+    "exit",
+    NULL
+};
+
+char ** cmd_completion(const char *text, int start, int end){
+    return rl_completion_matches(text, cmd_generator);
+};
+
+char *cmd_generator(const char *text, int state){
+    static int list_index, len;
+    char *cmd;
+
+    if(!state){
+        list_index = 0;
+        len = strlen(text);
+    }
+
+    while ((cmd = cmds[list_index++])){
+        if (strncmp(cmd, text, len) == 0){
+            return strdup(cmd);
+        }
+    }
+
+    return NULL;
 }
 
 void run_cli(int socket){
     print_cli_options();
 
-    char user_input[COMMAND_SIZE];
+    char *user_input;
+    char user_input_processing_copy[COMMAND_SIZE];
     char *user_cmd;
     char *user_arg;
 
     int session_alive = 1;
     do{
-        printf("\nudp_filesync > ");
+        user_input = readline("\nudp_filesync > ");
 
-        fgets(user_input, COMMAND_SIZE, stdin);
+        // Erases readline feedback from console.
+        printf("\033[A\33[2K");
+        printf("\033[A\33[2K");
 
-        user_cmd = strtok(user_input, " ");
+        strcpy(user_input_processing_copy, user_input);
+        user_cmd = strtok(user_input_processing_copy, " ");
         user_arg = strtok(NULL, " \n");
 
         if(user_arg != NULL && strlen(user_arg) > FILE_NAME_SIZE){
             printf("Filename too long, max is 255 characters. Please enter your command again.");
             run_cli(socket);
             exit(0);
+        }
+
+        if(user_input != NULL){
+            add_history(user_input);
         }
         
         if (!strcmp(user_cmd,"upload")) {
@@ -236,19 +283,15 @@ void run_cli(int socket){
             if (delete_file_local(user_arg) == -1){
                 printf("Error deleting file.\n");
             }
-        }else if(!strcmp(user_cmd, "list_server\n")){
+        }else if(!strcmp(user_cmd, "list_server")){
             if (listServer() == -1){
                 printf("Error listing server files.\n");
             }
-        }else if(!strcmp(user_cmd, "list_client\n")){
+        }else if(!strcmp(user_cmd, "list_client")){
             if (list_client() == -1){
                 printf("Error listing client files.\n");
             }
-        }else if(!strcmp(user_cmd, "get_sync_dir\n")){
-            if (getSyncDir() == -1){
-                printf("Error getting sync directory.\n");
-            }
-        }else if(!strcmp(user_input, "exit\n")){
+        }else if(!strcmp(user_input, "exit")){
             if (exit_client() == -1){
                 printf("Error exiting client.\n");
             }else{
@@ -258,6 +301,9 @@ void run_cli(int socket){
             printf("\nInvalid input!\n");
             print_cli_options();
         }
+
+        free(user_input);
+       
     } while(session_alive);
 }
 
@@ -389,7 +435,7 @@ int main(int argc, char const *argv[]){
 
     if(argc < 3){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");
-        fprintf(stderr, "Command should be in the form: client <username> <server_ip_address>\n");
+        fprintf(stderr, "Usage: client <username> <server_ip_address>\n");
         exit(0);
     }
 
@@ -427,6 +473,7 @@ int main(int argc, char const *argv[]){
 
     pthread_create(&sync_thread, NULL, sync_files, NULL);
 
+    rl_attempted_completion_function = cmd_completion;
     run_cli(sock_cmd);
     
     return 0;

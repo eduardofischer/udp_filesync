@@ -5,4 +5,7 @@
 
 void delay(int secs);
 
+char **cmd_completion(const char *, int, int);
+char *cmd_generator(const char *, int);
+
 #endif

@@ -22,6 +22,7 @@ typedef struct thread_info{
     CLIENT_INFO client;
     uint16_t sock_cmd;
     uint16_t sock_sync;
+    pthread_t tid_sync;
 } THREAD_INFO;
 
 typedef struct connection_info{

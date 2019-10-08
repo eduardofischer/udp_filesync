@@ -89,6 +89,7 @@ void *thread_client_cmd(void *thread_info){
 					pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                     printf("📝 [%s:%d] BYE: client disconnected\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
 					pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
+					pthread_cancel(info.tid_sync);
 					pthread_exit(NULL);
 
                     break;
@@ -227,8 +228,9 @@ int new_client(CLIENT_INFO *client){
 	conn_info.ports.port_cmd = get_socket_port(sock_cmd);
 	conn_info.ports.port_sync = get_socket_port(sock_sync);
 
-	pthread_create(&thr_cmd, NULL, thread_client_cmd, &thread_info);
 	pthread_create(&thr_sync, NULL, thread_client_sync, &thread_info);
+	thread_info.tid_sync = thr_sync;
+	pthread_create(&thr_cmd, NULL, thread_client_cmd, &thread_info);
 
 	if(hello(conn_info) < 0){
 		printf("ERROR responding HELLO message\n");

@@ -257,7 +257,8 @@ int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
         else
             entries_pkt.header.length = DATA_LENGTH;
 
-		memcpy(&entries_pkt.data, ((char*) server_entries) + (packet_number*DATA_LENGTH), entries_pkt.header.length);
+		if(n_packets > 0)
+			memcpy(&entries_pkt.data, ((char*) server_entries) + (packet_number*DATA_LENGTH), entries_pkt.header.length);
 		packet_number++;
         n = send_packet(socket, client_addr, entries_pkt, 0);
 
@@ -387,7 +388,7 @@ int main(int argc, char const *argv[]){
 			else{
 				printf("usuário não encontrado na hash table, criando nova entrada\n");
 				//Inicializa a nova estrutura de mutex	
-				new_mutex.clients_connected = 1;		
+				new_mutex.clients_connected = 1;
 				pthread_mutex_init(&(new_mutex.sync_or_command), NULL);
 
 				user_to_add = malloc(sizeof(ENTRY));

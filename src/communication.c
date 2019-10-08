@@ -197,14 +197,12 @@ int send_file(REMOTE_ADDR address, char *filePath){
     struct stat file_stats;
     char buffer[DATA_LENGTH];
     char filename[FILE_NAME_SIZE];
-    int number_of_dirs;
-    //Divide os subdiretorios em strings e então só pega o nome do arquivo.
-    char **strings = splitPath(filePath, &number_of_dirs);
-    strcpy(filename,strings[number_of_dirs - 1]);
+
+    get_filename_from_path(filePath, filename);
     
     //Pega as estatísticas do arquivo e preenche a estrutura file_info
     stat(filePath,&file_stats);   
-    strcpy(file_info.filename,filename);
+    strcpy(file_info.filename, filename);
     file_info.modification_time = file_stats.st_mtime;
     file_info.access_time = file_stats.st_atime;
 

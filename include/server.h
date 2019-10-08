@@ -11,7 +11,7 @@
 typedef struct client_mutex_info{
     pthread_mutex_t sync_or_command;
     int clients_connected;
-}CLIENT_MUTEX;
+} CLIENT_MUTEX;
 
 typedef struct client_info{
     char username[MAX_NAME_LENGTH];

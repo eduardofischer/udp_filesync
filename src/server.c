@@ -27,6 +27,8 @@ void *thread_client_cmd(void *thread_info){
 	ENTRY *found;
 	to_search.key = info.client.username;
 	found = hsearch(to_search,FIND);
+	if(found == NULL)
+		printf("Error hsearch FIND: %s", strerror(errno));
 
 	// Path da pasta do usuário no servidor
 	strcpy(user_dir, SERVER_DIR);	
@@ -113,6 +115,8 @@ void *thread_client_sync(void *thread_info){
 	ENTRY *found;
 	to_search.key = info.client.username;
 	found = hsearch(to_search,FIND);
+	if(found == NULL)
+		printf("Error hsearch FIND: %s", strerror(errno));
 
 	sem_wait(&file_is_created);
 	sem_destroy(&file_is_created);
@@ -176,7 +180,7 @@ void *thread_client_sync(void *thread_info){
 			
         }else
 			printf("✉ [%s:%d] WARNING: Message ignored by SYNC thread. Wrong type.\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
-    }  
+    }
 }
 
 int hello(CONNECTION_INFO conn){
@@ -328,8 +332,13 @@ int main(int argc, char const *argv[]){
 	REMOTE_ADDR client_addr;
 	CLIENT_INFO client_info;
 
-	hcreate(NUM_OF_MAX_CONNECTIONS);
+	CLIENT_MUTEX new_mutex;
+	ENTRY user_to_search;
+	ENTRY *user_retrieved;
+	ENTRY *user_to_add;
 
+	if(hcreate(NUM_OF_MAX_CONNECTIONS) < 0)
+		printf("Error creating hash table: %s\n", strerror(errno));
 
     listen_socket = create_udp_socket();
     listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, PORT);
@@ -357,26 +366,33 @@ int main(int argc, char const *argv[]){
 			client_info.client_addr = client_addr;
 			strcpy(client_info.username, (char *) msg.data);
 
-			ENTRY user_to_search;
-			ENTRY *user_retrieved;
+
 			user_to_search.key = client_info.username;
+
+			// HASH TABLE
 			//Caso tenha achado um usuário, incrementa o número de usuários logados
-			if ((user_retrieved = hsearch(user_to_search,FIND)) != NULL){
+			if ((user_retrieved = hsearch(user_to_search, FIND)) != NULL){
 				(((CLIENT_MUTEX*)user_retrieved->data)->clients_connected)++;
+				printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*)user_retrieved->data)->clients_connected));
 			}
 			//Caso não haja nenhum usuário
 			else{
-				//Inicializa a nova estrutura de mutex
-				CLIENT_MUTEX new_mutex;
-				new_mutex.clients_connected = 1;
+				printf("usuário não encontrado na hash table, criando nova entrada\n");
+				//Inicializa a nova estrutura de mutex	
+				new_mutex.clients_connected = 1;		
 				pthread_mutex_init(&(new_mutex.sync_or_command), NULL);
-				
-				//Inicializa nova entry
-				ENTRY user_to_add;
-				user_to_add.data = (void *) &new_mutex;
-				user_to_add.key = client_info.username;
+
+				user_to_add = malloc(sizeof(user_to_add));
+
+				// Aloca novas variáveis para os novos clientes
+				user_to_add->data = malloc(sizeof(new_mutex));
+				memcpy(user_to_add->data, &new_mutex, sizeof(new_mutex));
+
+				user_to_add->key = client_info.username;
 				//Adiciona no hash
-				hsearch(user_to_add, ENTER);
+				hsearch(*user_to_add, ENTER);
+
+				free(user_to_add);
 			}
 
 			n = ack(listen_socket, (struct sockaddr *)&cli_addr, clilen);
@@ -401,6 +417,7 @@ int main(int argc, char const *argv[]){
 			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port);
 		}				
 	}
+	hdestroy();
 
     return 0;
 }

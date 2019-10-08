@@ -144,7 +144,7 @@ int list_client(){
     else{
         printf("Client sync directory is empty.\n");
     }
-    
+
     free(entries);
 
     return n_entries;
@@ -320,6 +320,7 @@ int request_sync(){
         //printf("- %s deleted!\n", (char *)(list.list + (list.n_downloads + list.n_uploads + i) * MAX_NAME_LENGTH));
     }
 
+    free(list.list);
     free(entries);
     free(server_entries);
     return 0;

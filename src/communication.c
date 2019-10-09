@@ -73,14 +73,14 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int usec_timeout){
     do{
         n = sendto(socket, &packet, PACKET_SIZE, 0, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in));
         if (n < 0){
-            printf("ERROR send_packet sendto: %s\n", strerror(errno));
+            //printf("ERROR send_packet sendto: %s\n", strerror(errno));
             return -1;
         }
 
         n = recvfrom(socket, &response, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
         if (n < 0 || response.header.type != ACK){
-            printf("\nERROR send_packet recvfrom %s\n", strerror(errno));
-            printf("Resending packet.\n");
+            //printf("\nERROR send_packet recvfrom %s\n", strerror(errno));
+            //printf("Resending packet.\n");
 
             n_timeouts++;
         }
@@ -107,7 +107,7 @@ int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout)
     n = recvfrom(socket, packet, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
 
     if (n < 0){
-        printf("Timeout recv_packet recvfrom %s\n", strerror(errno));
+        //printf("Timeout recv_packet recvfrom %s\n", strerror(errno));
         return -1;
     }
 

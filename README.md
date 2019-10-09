@@ -46,7 +46,7 @@ Then you can connect a `client` using:
 - `sync_dir` will then be automatically synchronized among all the client instances connected to the server.
 
 #### Client CLI
-Once the client is connected to the server, a command line interface becomes availlable with the following options:
+Once the client is connected to the server, a command line interface becomes available with the following options:
 
  `upload <filepath>`  - Uploads a file to the users shared directory
  

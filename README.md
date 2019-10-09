@@ -8,7 +8,7 @@ Developed by:
  - [Rodrigo Bastos](https://github.com/ropbastos/)
 
 ## Dependencies
-Before compiling, make shure you have all the dependencies installed
+Before compiling, make sure you have all the dependencies installed
 
  - [readline.h](http://man7.org/linux/man-pages/man3/readline.3.html)
 
@@ -28,7 +28,7 @@ Once you have installed all the dependencies, get the code:
 git clone https://github.com/eduardofischer/udp_filesync.git
 cd udp_filesync
 ```
-To build the `client` and `server` binary files, run:
+To build the `client` and `server` binaries, run:
 ```
 make
 ```
@@ -42,8 +42,8 @@ Then you can connect a `client` using:
 ```
 ./client <username> <server_ip_address> [<port>]
 ```
-- At the first time a client connects to the server, a directory named `sync_dir` is created in the client host.
-- `sync_dir` will then be automatically synchronized among all the clients connected to the server.
+- When a client first connects to the server a directory named `sync_dir` is created in the client host.
+- `sync_dir` will then be automatically synchronized among all the client instances connected to the server.
 
 #### Client CLI
 Once the client is connected to the server, a command line interface becomes availlable with the following options:

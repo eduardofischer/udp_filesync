@@ -32,7 +32,7 @@
 #define SUCCESS 0
 
 /** Tamanho do datagrama */
-#define PACKET_SIZE 1024
+#define PACKET_SIZE 65000
 
 /** Tipos de pacotes */
 #define ERR     0xFF

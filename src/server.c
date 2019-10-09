@@ -50,7 +50,8 @@ void *thread_client_cmd(void *thread_info){
                 case UPLOAD:
 					pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
 					file_info = *((FILE_INFO*)cmd->argument);
-                    printf("📝 [%s:%d] %s: CMD uploading %s...	", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, file_info.filename);
+                    printf("📝 [%s:%d] %s: CMD uploading %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, file_info.filename);
+					fflush(stdout);
 					receive_file(file_info, user_dir, socket);
 					printf("✅ OK!\n");
 					pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
@@ -60,6 +61,7 @@ void *thread_client_cmd(void *thread_info){
                     if(strlen((*cmd).argument) > 0){
 						pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                         printf("📝 [%s:%d] %s: CMD downloading %s...	", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);		
+						fflush(stdout);
 						strcpy(download_file_path, user_dir);
 						strcat(download_file_path, cmd->argument);		
 						send_file(addr, download_file_path);
@@ -73,7 +75,8 @@ void *thread_client_cmd(void *thread_info){
 					
                     if(strlen((*cmd).argument) > 0){
 						pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
-                        printf("📝 [%s:%d] %s: CMD deleting %s...", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);
+                        printf("📝 [%s:%d] %s: CMD deleting %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);
+						fflush(stdout);
 						delete(cmd->argument, user_dir);
 						printf("✅ OK!\n");
 						pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
@@ -156,7 +159,8 @@ void *thread_client_sync(void *thread_info){
 				case UPLOAD:
 					pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
 					file_info = *((FILE_INFO*)cmd->argument);
-                    printf("📝 [%s:%d] %s: SYNC uploading %s...	", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, file_info.filename);
+                    printf("📝 [%s:%d] %s: SYNC uploading %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, file_info.filename);
+					fflush(stdout);
 					receive_file(file_info, user_dir, socket);
 					printf("✅ OK!\n");
 					pthread_mutex_unlock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
@@ -166,6 +170,7 @@ void *thread_client_sync(void *thread_info){
 					pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] %s: SYNC downloading %s...	", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);		
+						fflush(stdout);
 						strcpy(download_file_path, user_dir);
 						strcat(download_file_path, cmd->argument);		
 						send_file(addr, download_file_path);
@@ -178,7 +183,8 @@ void *thread_client_sync(void *thread_info){
                 case DELETE:
 					pthread_mutex_lock(&(((CLIENT_MUTEX*)found->data)->sync_or_command));
                     if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] %s: SYNC deleting %s...	", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);
+                        printf("📝 [%s:%d] %s: SYNC deleting %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);
+						fflush(stdout);
 						if(delete(cmd->argument, user_dir) <0)
 							printf("Error deleting file : %s\n", strerror(errno));
 						printf("✅ OK!\n");

@@ -31,7 +31,7 @@ int uploadFile(char* filePath, REMOTE_ADDR remote){
     }
 
     //Caso nao exista retorna erro
-     printf("Ψ༼ຈل͜ຈ༽Ψ Satan says that the file doesn't exist.  (Typo?) Ψ༼ຈل͜ຈ༽Ψ");
+     printf("File not found :(\n");
     return -1;
 }
 

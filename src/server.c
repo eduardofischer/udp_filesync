@@ -8,6 +8,7 @@
 #include <search.h>
 #include <unistd.h>
 
+int port = PORT;
 int listen_socket;
 sem_t file_is_created;
 REMOTE_ADDR main_server;
@@ -346,10 +347,11 @@ int delete(char *file_name, char *client_dir_path){
 	}
 }
 
-int main(int argc, char *argv[]){
-	int n, port = PORT;
-	int opt, backup_mode = 0;
-	struct hostent *main_host;
+void run_backup_mode(){
+
+}
+
+int run_server_mode(){
 	struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
 	PACKET msg;
@@ -359,7 +361,85 @@ int main(int argc, char *argv[]){
 	ENTRY user_to_search;
 	ENTRY *user_retrieved;
 	ENTRY *user_to_add;
+
+	// Cria o socket UDP para conexão de novos clientes
+    listen_socket = create_udp_socket();
+    listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, port);
+
+	if(listen_socket < 0)
+        return -1;
+
+	memset(&cli_addr, 0, sizeof(struct sockaddr_in));
+    clilen = sizeof(struct sockaddr_in);
+
+	while (1) {
+		if (recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen) < 0) 
+			printf("ERROR on recvfrom\n");
+
+		sem_init(&file_is_created, 0, 0);
+		
+		client_addr.ip = cli_addr.sin_addr.s_addr;
+		client_addr.port = ntohs(cli_addr.sin_port);
+
+		if(msg.header.type == HELLO){
+			// Seta informações de client_info.
+			client_info.client_addr = client_addr;
+			strcpy(client_info.username, (char *) msg.data);
+
+			user_to_search.key = client_info.username;
+
+			// HASH TABLE
+			//Caso tenha achado um usuário, incrementa o número de usuários logados
+			if ((user_retrieved = hsearch(user_to_search, FIND)) != NULL){
+				(((CLIENT_MUTEX*)user_retrieved->data)->clients_connected)++;
+				printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*)user_retrieved->data)->clients_connected));
+			//Caso não haja nenhum usuário
+			} else{
+				printf("Usuário não encontrado na hash table, criando nova entrada\n");
+				//Inicializa a nova estrutura de mutex	
+				new_mutex.clients_connected = 1;
+				pthread_mutex_init(&(new_mutex.sync_or_command), NULL);
+
+				user_to_add = malloc(sizeof(ENTRY));
+
+				// Aloca novas variáveis para os novos clientes
+				user_to_add->data = malloc(sizeof(new_mutex));
+				memcpy(user_to_add->data, &new_mutex, sizeof(new_mutex));
+
+				user_to_add->key = client_info.username;
+				//Adiciona no hash
+				hsearch(*user_to_add, ENTER);
+
+				free(user_to_add);
+			}
+
+			
+			if(ack(listen_socket, (struct sockaddr *)&cli_addr, clilen) < 0){
+				printf("ERROR ack at HELLO\n");
+				exit(0);
+			}
+
+			if(new_client(&client_info) < 0){
+				printf("ERROR creating client sockets\n");
+				exit(0);
+			}
+
+			if(create_user_dir((char *) &(msg.data)) < 0) 
+				exit(0);
+			
+			sem_post(&file_is_created);
+			
+			printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port,(char *) &(msg.data));
+		} else {
+			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port);
+		}				
+	}
+}
+
+int main(int argc, char *argv[]){
+	int opt, backup_mode = 0;
 	char hostname[MAX_NAME_LENGTH];
+	struct hostent *main_host;
 
 	// Processa os argumentos passados na linha de comando
 	// -p 3000 -> Seta uma porta diferente da padrão
@@ -384,95 +464,23 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	if(backup_mode){
-		printf("Backup Server. Main server: %s\n", inet_ntoa(*(struct in_addr *) &main_server.ip));
-		// FAZER AS COISAS DO BACKUP MODE AQUI
-	}else{
-		// FAZER AS COISAS DO MAIN SERVER AQUI
-	}
-
+	// Cria a hash table que receberá dados sobre os clientes ativos
 	if(hcreate(NUM_OF_MAX_CONNECTIONS) < 0)
 		printf("Error creating hash table: %s\n", strerror(errno));
 
-    listen_socket = create_udp_socket();
-    listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, port);
-
-    if(listen_socket < 0)
-        return -1;
- 
-    memset(&cli_addr, 0, sizeof(struct sockaddr_in));
-    clilen = sizeof(struct sockaddr_in);
-
 	gethostname(hostname, sizeof(hostname));
-	printf("✅ Server running at %s:%d\n\n", hostname, port);
 
-    while (1) {
-		n = recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &cli_addr, &clilen);
-
-		sem_init(&file_is_created, 0, 0);
-		
-		if (n < 0) 
-			printf("ERROR on recvfrom\n");
-
-		client_addr.ip = cli_addr.sin_addr.s_addr;
-		client_addr.port = ntohs(cli_addr.sin_port);
-
-		if(msg.header.type == HELLO){
-			//Seta informações de client_info. WARNING: Caso seja feito alteração no pacote enviado, deve-se alterar
-			//para que  o msg.data.data do memcpy seja só o username.
-			client_info.client_addr = client_addr;
-			strcpy(client_info.username, (char *) msg.data);
-
-			user_to_search.key = client_info.username;
-
-			// HASH TABLE
-			//Caso tenha achado um usuário, incrementa o número de usuários logados
-			if ((user_retrieved = hsearch(user_to_search, FIND)) != NULL){
-				(((CLIENT_MUTEX*)user_retrieved->data)->clients_connected)++;
-				//printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*)user_retrieved->data)->clients_connected));
-			}
-			//Caso não haja nenhum usuário
-			else{
-				//printf("usuário não encontrado na hash table, criando nova entrada\n");
-				//Inicializa a nova estrutura de mutex	
-				new_mutex.clients_connected = 1;
-				pthread_mutex_init(&(new_mutex.sync_or_command), NULL);
-
-				user_to_add = malloc(sizeof(ENTRY));
-
-				// Aloca novas variáveis para os novos clientes
-				user_to_add->data = malloc(sizeof(new_mutex));
-				memcpy(user_to_add->data, &new_mutex, sizeof(new_mutex));
-
-				user_to_add->key = client_info.username;
-				//Adiciona no hash
-				hsearch(*user_to_add, ENTER);
-
-				free(user_to_add);
-			}
-
-			n = ack(listen_socket, (struct sockaddr *)&cli_addr, clilen);
-			if(n < 0){
-				printf("ERROR ack at HELLO\n");
-				exit(0);
-			}
-
-			n = new_client(&client_info);
-			if(n < 0){
-				printf("ERROR creating client sockets\n");
-				exit(0);
-			}
-
-			if (create_user_dir((char *) &(msg.data)) < 0) 
-				exit(0);
-			
-			sem_post(&file_is_created);
-			
-			printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port,(char *) &(msg.data));
-		} else {
-			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &client_addr.ip), client_addr.port);
-		}				
+	if(backup_mode){
+		// FAZER AS COISAS DO BACKUP MODE AQUI
+		printf("✅  Server running at %s:%d (BACKUP SERVER)\n", hostname, port);
+		printf("    Main server: %s\n\n", inet_ntoa(*(struct in_addr *) &main_server.ip));
+		run_backup_mode();
+	}else{
+		// FAZER AS COISAS DO MAIN SERVER AQUI
+		printf("✅  Server running at %s:%d (MAIN SERVER)\n\n", hostname, port);
+		run_server_mode();
 	}
+    
 	hdestroy();
 
     return 0;

@@ -40,6 +40,7 @@
 #define ACK     0x01
 #define DATA    0x02
 #define CMD     0x03
+#define BACKUP  0x04
 
 /** Codigos dos comandos **/
 #define UPLOAD   0x04

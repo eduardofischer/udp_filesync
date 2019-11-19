@@ -6,9 +6,11 @@
 #include <utime.h>
 #include <semaphore.h> 
 #include <search.h>
+#include <unistd.h>
 
 int listen_socket;
 sem_t file_is_created;
+REMOTE_ADDR main_server;
 
 /** 
  *  Escuta um cliente em um determinado socket 
@@ -344,8 +346,10 @@ int delete(char *file_name, char *client_dir_path){
 	}
 }
 
-int main(int argc, char const *argv[]){
-	int n, port;
+int main(int argc, char *argv[]){
+	int n, port = PORT;
+	int opt, backup_mode = 0;
+	struct hostent *main_host;
 	struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
 	PACKET msg;
@@ -357,10 +361,35 @@ int main(int argc, char const *argv[]){
 	ENTRY *user_to_add;
 	char hostname[MAX_NAME_LENGTH];
 
-	if(argc > 1)
-		port = atoi(argv[1]);
-	else
-		port = PORT;
+	// Processa os argumentos passados na linha de comando
+	// -p 3000 -> Seta uma porta diferente da padrão
+	// -b 192.168.1.25 -> BACKUP MODE, identifica que essa instancia opera inicialmente como backup,
+	//o IP do main_server é passado como argumento
+	while ((opt = getopt(argc, argv, "p:b:")) != -1) {
+		switch (opt) {
+		case 'p':
+			port = atoi(optarg);
+			break;
+		case 'b':
+			if ((main_host = gethostbyname((char *)optarg)) == NULL){
+				fprintf(stderr, "ERROR! No such host\n");
+				break;
+			}
+			main_server.ip = *(unsigned long *) main_host->h_addr;
+			backup_mode = 1;
+			break;
+		default: /* '?' */
+			fprintf(stderr, "Usage: %s [-p port] [-b main_server_ip]\n", argv[0]);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	if(backup_mode){
+		printf("Backup Server. Main server: %s\n", inet_ntoa(*(struct in_addr *) &main_server.ip));
+		// FAZER AS COISAS DO BACKUP MODE AQUI
+	}else{
+		// FAZER AS COISAS DO MAIN SERVER AQUI
+	}
 
 	if(hcreate(NUM_OF_MAX_CONNECTIONS) < 0)
 		printf("Error creating hash table: %s\n", strerror(errno));
@@ -393,7 +422,6 @@ int main(int argc, char const *argv[]){
 			//para que  o msg.data.data do memcpy seja só o username.
 			client_info.client_addr = client_addr;
 			strcpy(client_info.username, (char *) msg.data);
-
 
 			user_to_search.key = client_info.username;
 

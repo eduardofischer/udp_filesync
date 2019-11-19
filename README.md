@@ -36,7 +36,7 @@ make
 
 Start the UDP FileSync `server` by running:
 ```
-./server [<port>]
+./server [-p PORT] [-b MAIN_SERVER_IP]
 ```
 Then you can connect a `client` using:
 ```

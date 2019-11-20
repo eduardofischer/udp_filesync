@@ -41,6 +41,7 @@
 #define DATA    0x02
 #define CMD     0x03
 #define BACKUP  0x04
+#define ALIVE   0x05
 
 /** Codigos dos comandos **/
 #define UPLOAD   0x04

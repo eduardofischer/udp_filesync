@@ -3,6 +3,7 @@
 #include "../include/server.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
+#include "../include/aux.h"
 #include <utime.h>
 #include <semaphore.h> 
 #include <search.h>
@@ -409,44 +410,55 @@ int delete(char *file_name, char *client_dir_path){
 
 void list_backup_servers() {
 	int i;
-	printf("\nBACKUP SERVERS:\n");
-	for(i=0; i < n_backup_servers; i++) {
-		printf(" - Backup %d: %s:%d\n", i, inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
-	}
+	printf("\n");
+	for(i=0; i < n_backup_servers; i++) 
+		printf("💾  BACKUP SERVER %d: %s:%d \n", i, inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 }
 
 int send_backup_hello() {
-    PACKET packet, response;
+    PACKET packet;
 
     packet.header.type = BACKUP;
 
     if (send_packet(backup_socket, main_server, packet, 0) < 0){
         fprintf(stderr, "ERROR! BACKUP HELLO failed\n");
-        return -1;;
-    }
-
-    if(recv_packet(backup_socket, NULL, &response, 0) < 0){
-        printf("ERROR recv_packet\n");
         return -1;
     }
-
-	n_backup_servers = (int) *(response.data);
-	backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
-	memcpy(backup_servers, (char* )&(response.data) + sizeof(int), sizeof(REMOTE_ADDR) * n_backup_servers);
-
-	list_backup_servers();
 
     return 0;
 }
 
-int respond_backup_hello(REMOTE_ADDR b_server) {
+int update_backup_lists() {
+	int i;
 	PACKET packet;
+	REMOTE_ADDR thisBackup;
 
 	packet.header.type = BACKUP;
 	memcpy(&packet.data, &n_backup_servers, sizeof(int));
 	memcpy((char* )&packet.data + sizeof(int), backup_servers, sizeof(REMOTE_ADDR) * n_backup_servers);
 
-	return send_packet(listen_socket, b_server, packet, 0);
+	for(i=0; i < n_backup_servers; i++){
+		thisBackup = backup_servers[i];	
+		
+		if(send_packet(listen_socket, thisBackup, packet, 500) < 0)
+			printf("%s:%d couldn't be reached\n", inet_ntoa(*(struct in_addr *) &thisBackup.ip), thisBackup.port);
+	}
+	
+	return 0;
+}
+
+void *is_server_alive(){
+	PACKET msg;
+	int alive_socket = create_udp_socket();
+
+	msg.header.type = ALIVE;
+
+	while(1) {
+		delay(2);
+		if(send_packet(alive_socket, main_server, msg, 500) < 0) {
+			printf("🚨  Main server is down! Starting election\n");
+		}
+	}
 }
 
 int run_backup_mode() {
@@ -457,6 +469,10 @@ int run_backup_mode() {
 	struct sockaddr_in addr;
 	socklen_t clilen = sizeof(addr);
 	
+	pthread_t thr_alive;
+
+	pthread_create(&thr_alive, NULL, is_server_alive, NULL);
+
 	// Cria o socket UDP para conexão de novos clientes
     backup_socket = create_udp_socket();
     backup_socket = bind_udp_socket(backup_socket, INADDR_ANY, port);
@@ -485,12 +501,28 @@ int run_backup_mode() {
 			//}
 
 		}
-		else{
-			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
+		else if(msg.header.type == BACKUP) {
+			n_backup_servers = (int) *(msg.data);
+			backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
+			memcpy(backup_servers, (char* )&(msg.data) + sizeof(int), sizeof(REMOTE_ADDR) * n_backup_servers);
+
+			list_backup_servers();
 		}
+		else
+			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
 	}
 
 	return -1;
+}
+
+int new_backup(CLIENT_INFO* backup_info){
+	THREAD_INFO thread_info;
+	CONNECTION_INFO conn_info;
+	int socket_usr_backup;
+
+	socket_u
+	if()
+
 }
 
 int run_server_mode() {
@@ -517,14 +549,14 @@ int run_server_mode() {
 
 	while (1) {
 		if (recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &addr, &clilen) < 0) 
-			printf("ERROR on recvfrom\n");
+			printf("ERROR recvfrom: %s\n", strerror(errno));
 
 		sem_init(&file_is_created, 0, 0);
 		
 		rem_addr.ip = addr.sin_addr.s_addr;
 		rem_addr.port = ntohs(addr.sin_port);
 
-		if(msg.header.type == HELLO){
+		if(msg.header.type == HELLO) {
 			// Seta informações de client_info.
 			client_info.client_addr = rem_addr;
 			strcpy(client_info.username, (char *) msg.data);
@@ -537,7 +569,7 @@ int run_server_mode() {
 				(((CLIENT_MUTEX*)user_retrieved->data)->clients_connected)++;
 				printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*)user_retrieved->data)->clients_connected));
 			//Caso não haja nenhum usuário
-			} else{
+			} else {
 				printf("Usuário não encontrado na hash table, criando nova entrada\n");
 				//Inicializa a nova estrutura de mutex	
 				new_mutex.clients_connected = 1;
@@ -578,11 +610,15 @@ int run_server_mode() {
 			backup_servers[n_backup_servers - 1] = rem_addr;
 			printf("💾  NEW BACKUP SERVER: %s:%d \n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
 
-			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0)
-				printf("ERROR acking backup hello");
+			list_backup_servers();
 
-			if(respond_backup_hello(rem_addr) < 0)
-				printf("ERROR responding to backup hello\n");
+			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0)
+				printf("ERROR acking backup hello\n");
+
+			update_backup_lists();
+		} else if(msg.header.type == ALIVE) {
+			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0)
+				printf("ERROR acking alive\n");
 		} else {
 			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
 		}				

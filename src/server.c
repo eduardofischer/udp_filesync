@@ -3,6 +3,7 @@
 #include "../include/server.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
+#include "../include/aux.h"
 #include <utime.h>
 #include <semaphore.h> 
 #include <search.h>
@@ -385,7 +386,25 @@ int update_backup_lists() {
 	return 0;
 }
 
+void *is_server_alive(){
+	PACKET msg;
+	int alive_socket = create_udp_socket();
+
+	msg.header.type = ALIVE;
+
+	while(1) {
+		delay(2);
+		if(send_packet(alive_socket, main_server, msg, 500) < 0) {
+			printf("🚨  Main server is down! Starting election\n");
+		}
+	}
+}
+
 int run_backup_mode() {
+	pthread_t thr_alive;
+
+	pthread_create(&thr_alive, NULL, is_server_alive, NULL);
+
 	// Cria o socket UDP para conexão de novos clientes
     backup_socket = create_udp_socket();
     backup_socket = bind_udp_socket(backup_socket, INADDR_ANY, port);
@@ -499,9 +518,12 @@ int run_server_mode() {
 			list_backup_servers();
 
 			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0)
-				printf("ERROR acking backup hello");
+				printf("ERROR acking backup hello\n");
 
 			update_backup_lists();
+		} else if(msg.header.type == ALIVE) {
+			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0)
+				printf("ERROR acking alive\n");
 		} else {
 			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
 		}				

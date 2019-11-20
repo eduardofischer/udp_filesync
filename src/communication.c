@@ -52,10 +52,9 @@ uint16_t get_socket_port(int socket){
  *           -1 (Error)
  *           -2 (Time out)
  **/
-int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int usec_timeout){
+int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int msec_timeout){
     struct sockaddr_in dest_addr, new_addr;
     socklen_t addr_len = sizeof(new_addr);
-    int n;
     PACKET response;
 
     dest_addr.sin_family = AF_INET;
@@ -65,32 +64,34 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int usec_timeout){
 
     struct timeval tv;
     tv.tv_sec = 0;
-    tv.tv_usec = (__suseconds_t) usec_timeout;
+    tv.tv_usec = msec_timeout * 1000;
 
-    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv));
+    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
-    int successfully_sent = 0, n_timeouts = 0;
-    do{
-        n = sendto(socket, &packet, PACKET_SIZE, 0, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in));
-        if (n < 0){
+    int successfully_sent = -2, n_timeouts = 0;
+    do {
+        if(sendto(socket, &packet, PACKET_SIZE, 0, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr_in)) < 0) {
             //printf("ERROR send_packet sendto: %s\n", strerror(errno));
             return -1;
         }
 
-        n = recvfrom(socket, &response, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
-        if (n < 0 || response.header.type != ACK){
+        if(recvfrom(socket, &response, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len) < 0 || response.header.type != ACK) {
             //printf("\nERROR send_packet recvfrom %s\n", strerror(errno));
             //printf("Resending packet.\n");
 
             n_timeouts++;
         }
         else{
-            successfully_sent = 1;
+            successfully_sent = 0;
         }
-    }while(successfully_sent == 0 && n_timeouts < MAX_TIMEOUTS);
-    
+    } while(successfully_sent < 0 && n_timeouts < MAX_TIMEOUTS);
 
-    return ntohs(new_addr.sin_port);
+    // Retorna o timeout para infinito
+    tv.tv_usec = 0;
+    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+
+    return successfully_sent;
 }
 
 int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout){

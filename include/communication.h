@@ -58,6 +58,27 @@ typedef struct FileInfo{
     char filename[MAX_NAME_LENGTH];
 } FILE_INFO;
 
+/** Estrutura com as informações do servidor */
+typedef struct RemoteAddr{
+    unsigned long ip; // load with inet_aton()
+    uint16_t port;
+} REMOTE_ADDR;
+
+typedef struct client_info{
+    char username[MAX_NAME_LENGTH];
+    REMOTE_ADDR client_addr;
+} CLIENT_INFO;
+
+typedef struct server_ports{
+    uint16_t port_cmd;
+    uint16_t port_sync;
+} SERVER_PORTS_FOR_CLIENT;
+
+typedef struct connection_info{
+    CLIENT_INFO client;
+    SERVER_PORTS_FOR_CLIENT ports;
+} CONNECTION_INFO;
+
 /** Estrutura do datagrama UDP */
 typedef struct PacketHeader{
     char type;              // Tipo do pacote
@@ -70,12 +91,6 @@ typedef struct PacketHeader{
 
 #define MAX_NAME_LENGTH 50
 
-/** Estrutura com as informações do servidor */
-typedef struct RemoteAddr{
-    unsigned long ip; // load with inet_aton()
-    uint16_t port;
-} REMOTE_ADDR;
-
 typedef struct Packet{
     PACKET_HEADER header;
     char data[DATA_LENGTH];
@@ -86,11 +101,6 @@ typedef struct command{
     char code;
     char argument[DATA_LENGTH - 1]; // Espaço restante do datagrama é preenchido com dados
 } COMMAND;
-
-typedef struct server_ports{
-    uint16_t port_cmd;
-    uint16_t port_sync;
-} SERVER_PORTS_FOR_CLIENT;
 
 /** Lista de sincronização */
 typedef struct sync_list {
@@ -145,4 +155,7 @@ int receive_file(FILE_INFO file_info, char *dir_path, int dataSocket);
 */
 int write_packet_to_the_file(PACKET *packet, FILE *file);
 
+int request_hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_address, REMOTE_ADDR *sync_address);
+
+int answer_hello(CONNECTION_INFO conn, int listen_socket);
 #endif

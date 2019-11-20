@@ -265,15 +265,6 @@ void *thread_backup_cmd(void *thread_info){
 
 }
 
-int hello(CONNECTION_INFO conn){
-	PACKET packet;
-
-	packet.header.type = HELLO;
-	memcpy(&packet.data, &conn.ports, sizeof(SERVER_PORTS_FOR_CLIENT));
-
-	return send_packet(listen_socket, conn.client.client_addr, packet, 0);
-}
-
 int new_client(CLIENT_INFO *client){
     pthread_t thr_cmd, thr_sync;
 	int sock_cmd, sock_sync;
@@ -307,7 +298,7 @@ int new_client(CLIENT_INFO *client){
 	thread_info.tid_sync = thr_sync;
 	pthread_create(&thr_cmd, NULL, thread_client_cmd, &thread_info);
 
-	if(hello(conn_info) < 0){
+	if(answer_hello(conn_info,listen_socket) < 0){
 		printf("ERROR responding HELLO message\n");
 		return -1;
 	}
@@ -539,7 +530,7 @@ int new_backup(CLIENT_INFO* backup_info){
 
 	pthread_create(&usr_backup,NULL,thread_backup_cmd,(void *)&thread_info);
 
-	if(hello(conn_info) < 0){
+	if(answer_hello(conn_info,backup_socket) < 0){
 		printf("ERROR responding HELLO message\n");
 		return -1;
 	}

@@ -326,3 +326,44 @@ int write_packet_to_the_file(PACKET *packet, FILE *file){
     }
 
 }
+
+/** 
+ *  Inicia a comunicação de um cliente com o servidor 
+ *  Retorna a porta com a qual o cliente deve se comunicar
+ *  ou -1 em caso de erro
+*/
+int request_hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_address, REMOTE_ADDR *sync_address){
+    PACKET packet, response;
+    int n;
+
+    packet.header.type = HELLO;
+    strcpy((char *)&(packet.data), username);
+
+    n = send_packet(socket, destination, packet, 0);
+
+    if (n < 0){
+        fprintf(stderr, "ERROR! HELLO failed\n");
+        return -1;;
+    }
+
+    if(recv_packet(socket, NULL, &response, 0) < 0){
+        printf("ERROR recv_packet\n");
+        return -1;
+    }
+
+    if(response.header.type == HELLO){
+        cmd_address->port = ((SERVER_PORTS_FOR_CLIENT *)&response.data)->port_cmd;
+        sync_address->port = ((SERVER_PORTS_FOR_CLIENT *)&response.data)->port_sync;
+    }
+
+    return 0;
+}
+
+int answer_hello(CONNECTION_INFO conn, int listen_socket){
+	PACKET packet;
+
+	packet.header.type = HELLO;
+	memcpy(&packet.data, &conn.ports, sizeof(SERVER_PORTS_FOR_CLIENT));
+
+	return send_packet(listen_socket, conn.client.client_addr, packet, 0);
+}

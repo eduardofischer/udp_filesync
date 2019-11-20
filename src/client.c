@@ -166,37 +166,7 @@ int exit_client(){
     return send_command(sock_cmd, server_cmd, EXIT, NULL, 500);
 };
 
-/** 
- *  Inicia a comunicação de um cliente com o servidor 
- *  Retorna a porta com a qual o cliente deve se comunicar
- *  ou -1 em caso de erro
-*/
-int hello(char *username){
-    PACKET packet, response;
-    int n;
 
-    packet.header.type = HELLO;
-    strcpy((char *)&(packet.data), username);
-
-    n = send_packet(sock_cmd, server_cmd, packet, 0);
-
-    if (n < 0){
-        fprintf(stderr, "ERROR! HELLO failed\n");
-        return -1;;
-    }
-
-    if(recv_packet(sock_cmd, NULL, &response, 0) < 0){
-        printf("ERROR recv_packet\n");
-        return -1;
-    }
-    
-    if(response.header.type == HELLO){
-        server_cmd.port = ((SERVER_PORTS_FOR_CLIENT *)&response.data)->port_cmd;
-        server_sync.port = ((SERVER_PORTS_FOR_CLIENT *)&response.data)->port_sync;
-    }
-
-    return 0;
-}
 
 void print_cli_options(){
     printf("\nAvailable commands:\n\n");
@@ -447,7 +417,7 @@ int main(int argc, char const *argv[]){
     }
 
     // Conecta com o servidor e atualiza as portas
-    if(hello(username) < 0)
+    if(request_hello(username,sock_cmd,server_cmd,&server_cmd,&server_sync) < 0)
         fprintf(stderr,"ERROR connecting to server\n");
 
     // Captura o evento CTRL + C

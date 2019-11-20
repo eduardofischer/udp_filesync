@@ -464,7 +464,6 @@ void *is_server_alive(){
 int run_backup_mode() {
 	PACKET msg;
 	REMOTE_ADDR rem_addr;
-	THREAD_INFO new_user_backup_thread;
 	CLIENT_INFO backup_info;
 	struct sockaddr_in addr;
 	socklen_t clilen = sizeof(addr);
@@ -495,10 +494,10 @@ int run_backup_mode() {
 				exit(0);
 			}
 
-			//if(new_backup(&backup_info) < 0){
-				//printf("ERROR creating backup socket and thread\n");
-			//	exit(0);
-			//}
+			if(new_backup(&backup_info) < 0){
+				printf("ERROR creating backup socket and thread\n");
+				exit(0);
+			}
 
 		}
 		else if(msg.header.type == BACKUP) {
@@ -519,10 +518,33 @@ int new_backup(CLIENT_INFO* backup_info){
 	THREAD_INFO thread_info;
 	CONNECTION_INFO conn_info;
 	int socket_usr_backup;
+	pthread_t usr_backup;
 
-	socket_u
-	if()
+	socket_usr_backup = create_udp_socket();
 
+	if(socket_usr_backup < 0){
+		printf("Erro ao criar socket para backup do usuário %s", backup_info->username);
+	}
+
+	bind_udp_socket(socket_usr_backup,INADDR_ANY,0);
+	//Preenche informações de conexão à serem mandadas pro server principal
+	conn_info.client = *(backup_info);
+	conn_info.ports.port_cmd = get_socket_port(socket_usr_backup);
+	conn_info.ports.port_sync =  0;
+	//Preenche informações da thread
+	thread_info.tid_sync = 0;
+	thread_info.sock_cmd = conn_info.ports.port_cmd;
+	thread_info.client = *(backup_info);
+	thread_info.sock_sync = 0;
+
+	pthread_create(&usr_backup,NULL,thread_backup_cmd,(void *)&thread_info);
+
+	if(hello(conn_info) < 0){
+		printf("ERROR responding HELLO message\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 int run_server_mode() {

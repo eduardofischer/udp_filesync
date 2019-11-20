@@ -203,6 +203,67 @@ void *thread_client_sync(void *thread_info){
     }
 }
 
+void *thread_backup_cmd(void *thread_info){
+	THREAD_INFO info = *(THREAD_INFO*)thread_info;
+	char user_dir[MAX_PATH_LENGTH];
+	REMOTE_ADDR addr = info.client.client_addr;
+	PACKET msg;
+	COMMAND *cmd;
+	FILE_INFO file_info;
+	struct sockaddr_in cli_addr;
+	int n, socket = info.sock_sync;
+
+	cli_addr.sin_family = AF_INET;
+    cli_addr.sin_port = htons(addr.port);
+    cli_addr.sin_addr.s_addr = addr.ip;
+    bzero(&(cli_addr.sin_zero), 8);
+
+	// Path da pasta do usuário no servidor
+	strcpy(user_dir, SERVER_DIR);	
+	strcat(user_dir, info.client.username);
+	strcat(user_dir, "/");
+	
+	create_user_dir(user_dir);
+
+	while(1){
+		n = recv_packet(socket, &addr, &msg, 0);
+
+		if (n < 0){
+			printf("ERROR recvfrom:  %s\n", strerror(errno));
+			pthread_exit(NULL);
+		}
+
+		cmd = (COMMAND *) &msg.data;
+
+        if(msg.header.type == CMD){
+			switch((*cmd).code){
+				case UPLOAD:
+					file_info = *((FILE_INFO*)cmd->argument);
+                    printf("📝 [%s:%d] %s: SYNC uploading %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, file_info.filename);
+					fflush(stdout);
+					receive_file(file_info, user_dir, socket);
+					printf("✅ OK!\n");       
+                    break;
+
+                case DELETE:
+                    if(strlen((*cmd).argument) > 0){
+                        printf("📝 [%s:%d] %s: SYNC deleting %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);
+						fflush(stdout);
+						if(delete(cmd->argument, user_dir) <0)
+							printf("Error deleting file : %s\n", strerror(errno));
+						printf("✅ OK!\n");
+                    }else
+                        printf("ERROR: delete missing argument\n");
+                    break;
+			}
+				
+			
+        }else
+			printf("✉ [%s:%d] WARNING: Message ignored by Backup thread. Wrong type.\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port);
+    }
+
+}
+
 int hello(CONNECTION_INFO conn){
 	PACKET packet;
 
@@ -389,11 +450,45 @@ int respond_backup_hello(REMOTE_ADDR b_server) {
 }
 
 int run_backup_mode() {
+	PACKET msg;
+	REMOTE_ADDR rem_addr;
+	THREAD_INFO new_user_backup_thread;
+	CLIENT_INFO backup_info;
+	struct sockaddr_in addr;
+	socklen_t clilen = sizeof(addr);
+	
 	// Cria o socket UDP para conexão de novos clientes
     backup_socket = create_udp_socket();
     backup_socket = bind_udp_socket(backup_socket, INADDR_ANY, port);
 
 	send_backup_hello(); // Conecta com o servidor principal
+
+	while(1){
+		if (recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &addr, &clilen) < 0) 
+			printf("ERROR on recvfrom\n");
+		
+		if(msg.header.type == HELLO){
+			//Preenche backup-info: Username e remote_addr do server principal
+			rem_addr.ip = addr.sin_addr.s_addr;
+			rem_addr.port = ntohs(addr.sin_port);
+			backup_info.client_addr = rem_addr;
+			strcpy(backup_info.username, (char *) msg.data);
+			
+			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0){
+				printf("ERROR ack at HELLO\n");
+				exit(0);
+			}
+
+			//if(new_backup(&backup_info) < 0){
+				//printf("ERROR creating backup socket and thread\n");
+			//	exit(0);
+			//}
+
+		}
+		else{
+			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
+		}
+	}
 
 	return -1;
 }

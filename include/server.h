@@ -57,4 +57,8 @@ int list_server(int socket, char *user_dir, REMOTE_ADDR client_addr);
 
 int delete(char *file_name, char *client_folder_path);
 
+void *thread_backup_cmd(void *thread_info);
+
+int new_backup(CLIENT_INFO* backup_info);
+
 #endif

@@ -8,10 +8,16 @@
 
 #include "communication.h"
 
+
 typedef struct client_mutex_info{
     pthread_mutex_t sync_or_command;
     int clients_connected;
 } CLIENT_MUTEX;
+
+typedef struct mutex_and_backup_info{
+    CLIENT_MUTEX client_mutex;
+    REMOTE_ADDR *backup_addresses;
+}CLIENT_MUTEX_AND_BACKUP;
 
 typedef struct thread_info{
     CLIENT_INFO client;

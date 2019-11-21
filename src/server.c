@@ -3,7 +3,6 @@
 #include "../include/server.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
-#include "../include/aux.h"
 #include <utime.h>
 #include <semaphore.h> 
 #include <search.h>
@@ -445,7 +444,7 @@ void *is_server_alive(){
 	msg.header.type = ALIVE;
 
 	while(1) {
-		delay(2);
+		sleep(2);
 		if(send_packet(alive_socket, main_server, msg, 500) < 0) {
 			printf("🚨  Main server is down! Starting election\n");
 		}

@@ -10,7 +10,6 @@
 #include "../include/client.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
-#include "../include/aux.h"
     
 int sock_cmd, sock_sync;
 char username[64];
@@ -189,10 +188,6 @@ char *cmds[] = {
     NULL
 };
 
-char ** cmd_completion(const char *text, int start, int end){
-    return rl_completion_matches(text, cmd_generator);
-};
-
 char *cmd_generator(const char *text, int state){
     static int list_index, len;
     char *cmd;
@@ -210,6 +205,10 @@ char *cmd_generator(const char *text, int state){
 
     return NULL;
 }
+
+char ** cmd_completion(const char *text, int start, int end){
+    return rl_completion_matches(text, cmd_generator);
+};
 
 void run_cli(int socket){
     print_cli_options();
@@ -355,7 +354,7 @@ void *sync_files(){
         FD_ZERO(&rfds);
         FD_SET(fd, &rfds);
 
-        delay(1);
+        sleep(1);
 
         if(select(fd + 1, &rfds, NULL, NULL, &tv) > 0 && FD_ISSET(fd, &rfds)){
             len = read(fd, buf, buf_len);

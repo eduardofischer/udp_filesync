@@ -451,66 +451,6 @@ void *is_server_alive(){
 	}
 }
 
-int run_backup_mode() {
-	PACKET msg;
-	REMOTE_ADDR rem_addr;
-	CLIENT_INFO backup_info;
-	struct sockaddr_in addr;
-	socklen_t clilen = sizeof(addr);
-	
-	pthread_t thr_alive;
-
-	pthread_create(&thr_alive, NULL, is_server_alive, NULL);
-
-	// Cria o socket UDP para conexão de novos clientes
-    backup_socket = create_udp_socket();
-    backup_socket = bind_udp_socket(backup_socket, INADDR_ANY, port);
-
-	send_backup_hello(); // Conecta com o servidor principal
-
-	while(1){
-		if (recvfrom(backup_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &addr, &clilen) < 0) 
-			printf("ERROR on recvfrom\n");
-
-		
-		if(msg.header.type == HELLO){
-			//Preenche backup-info: Username e remote_addr do server principal
-			rem_addr.ip = addr.sin_addr.s_addr;
-			rem_addr.port = ntohs(addr.sin_port);
-			backup_info.client_addr = rem_addr;
-			strcpy(backup_info.username, (char *) msg.data);
-			
-			if(ack(backup_socket, (struct sockaddr *)&addr, clilen) < 0){
-				printf("ERROR ack at HELLO\n");
-				exit(0);
-			}
-
-			if(new_backup(&backup_info) < 0){
-				printf("ERROR creating backup socket and thread\n");
-				exit(0);
-			}
-
-		}
-		else if(msg.header.type == BACKUP) {
-			n_backup_servers = (int) *(msg.data);
-			backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
-			memcpy(backup_servers, (char* )&(msg.data) + sizeof(int), sizeof(REMOTE_ADDR) * n_backup_servers);
-
-			if(ack(backup_socket, (struct sockaddr *)&addr, clilen) < 0){
-				printf("ERROR ack at BACKUP\n");
-				exit(0);
-			}
-
-			list_backup_servers();
-			
-		}
-		else
-			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
-	}
-
-	return -1;
-}
-
 int new_backup(CLIENT_INFO* backup_info){
 	THREAD_INFO thread_info;
 	CONNECTION_INFO conn_info;
@@ -534,7 +474,7 @@ int new_backup(CLIENT_INFO* backup_info){
 	thread_info.client = *(backup_info);
 	thread_info.sock_sync = 0;
 
-	pthread_create(&usr_backup,NULL,thread_backup_cmd,(void *)&thread_info);
+	pthread_create(&usr_backup, NULL, thread_backup_cmd, (void *)&thread_info);
 
 	if(answer_hello(conn_info,backup_socket) < 0){
 		printf("ERROR responding HELLO message\n");
@@ -544,9 +484,46 @@ int new_backup(CLIENT_INFO* backup_info){
 	return 0;
 }
 
+int run_backup_mode() {
+	PACKET msg;
+	REMOTE_ADDR rem_addr;
+	CLIENT_INFO backup_info;	
+	pthread_t thr_alive;
+
+	pthread_create(&thr_alive, NULL, is_server_alive, NULL);
+
+	// Cria o socket UDP para conexão de novos clientes
+    backup_socket = create_udp_socket();
+    backup_socket = bind_udp_socket(backup_socket, INADDR_ANY, port);
+
+	send_backup_hello(); // Conecta com o servidor principal
+
+	while(1){
+		if (recv_packet(backup_socket, &rem_addr, &msg, 0) < 0)
+			printf("ERROR recv_packet backup_socket\n");
+	
+		if(msg.header.type == HELLO){
+			//Preenche backup-info: Username e remote_addr do server principal
+			backup_info.client_addr = rem_addr;
+			strcpy(backup_info.username, (char *) msg.data);
+
+			if(new_backup(&backup_info) < 0)
+				printf("ERROR creating backup socket and thread\n");
+
+		} else if(msg.header.type == BACKUP) {
+			n_backup_servers = (int) *(msg.data);
+			backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
+			memcpy(backup_servers, (char* )&(msg.data) + sizeof(int), sizeof(REMOTE_ADDR) * n_backup_servers);
+
+			list_backup_servers();		
+		} else
+			printf("📡 [%s:%d] WARNING: Message ignored by backup_socket.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
+	}
+
+	return 0;
+}
+
 int run_server_mode() {
-	struct sockaddr_in addr;
-	socklen_t clilen = sizeof(addr);
 	PACKET msg;
 	REMOTE_ADDR rem_addr;
 	CLIENT_INFO client_info;
@@ -563,18 +540,13 @@ int run_server_mode() {
 	if(listen_socket < 0)
         return -1;
 
-	memset(&addr, 0, sizeof(struct sockaddr_in));
 	backup_servers = malloc(sizeof(REMOTE_ADDR));
-    clilen = sizeof(struct sockaddr_in);
 
 	while (1) {
-		if (recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &addr, &clilen) < 0) 
-			printf("ERROR recvfrom: %s\n", strerror(errno));
+		if (recv_packet(listen_socket, &rem_addr, &msg, 0) < 0)
+			printf("ERROR recv_packet listen_socket\n");
 
 		sem_init(&file_is_created, 0, 0);
-		
-		rem_addr.ip = addr.sin_addr.s_addr;
-		rem_addr.port = ntohs(addr.sin_port);
 
 		if(msg.header.type == HELLO) {
 			// Seta informações de client_info.
@@ -620,11 +592,6 @@ int run_server_mode() {
 				free(user_to_add);
 			}
 
-			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0){
-				printf("ERROR ack at HELLO\n");
-				exit(0);
-			}
-
 			if(new_client(&client_info) < 0){
 				printf("ERROR creating client sockets\n");
 				exit(0);
@@ -643,14 +610,9 @@ int run_server_mode() {
 			printf("💾  NEW BACKUP SERVER: %s:%d \n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
 
 			list_backup_servers();
-
-			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0)
-				printf("ERROR acking backup hello\n");
-
 			update_backup_lists();
 		} else if(msg.header.type == ALIVE) {
-			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0)
-				printf("ERROR acking alive\n");
+			// Ack enviado pela recv_packet
 		} else {
 			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
 		}				

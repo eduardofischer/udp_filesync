@@ -497,7 +497,13 @@ int run_backup_mode() {
 			backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 			memcpy(backup_servers, (char* )&(msg.data) + sizeof(int), sizeof(REMOTE_ADDR) * n_backup_servers);
 
+			if(ack(backup_socket, (struct sockaddr *)&addr, clilen) < 0){
+				printf("ERROR ack at BACKUP\n");
+				exit(0);
+			}
+
 			list_backup_servers();
+			
 		}
 		else
 			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);

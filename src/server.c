@@ -224,7 +224,7 @@ void *thread_backup_cmd(void *thread_info){
 	strcat(user_dir, info.client.username);
 	strcat(user_dir, "/");
 	
-	create_user_dir(user_dir);
+	create_user_dir(info.client.username);
 
 	while(1){
 		n = recv_packet(socket, &addr, &msg, 0);
@@ -531,7 +531,7 @@ int new_backup(CLIENT_INFO* backup_info){
 	conn_info.ports.port_sync =  0;
 	//Preenche informações da thread
 	thread_info.tid_sync = 0;
-	thread_info.sock_cmd = conn_info.ports.port_cmd;
+	thread_info.sock_cmd = socket_usr_backup;
 	thread_info.client = *(backup_info);
 	thread_info.sock_sync = 0;
 

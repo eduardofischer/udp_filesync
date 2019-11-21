@@ -212,7 +212,7 @@ void *thread_backup_cmd(void *thread_info){
 	COMMAND *cmd;
 	FILE_INFO file_info;
 	struct sockaddr_in cli_addr;
-	int n, socket = info.sock_sync;
+	int n, socket = info.sock_cmd;
 
 	cli_addr.sin_family = AF_INET;
     cli_addr.sin_port = htons(addr.port);
@@ -470,8 +470,9 @@ int run_backup_mode() {
 	send_backup_hello(); // Conecta com o servidor principal
 
 	while(1){
-		if (recvfrom(listen_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &addr, &clilen) < 0) 
+		if (recvfrom(backup_socket, &msg, PACKET_SIZE, 0, (struct sockaddr *) &addr, &clilen) < 0) 
 			printf("ERROR on recvfrom\n");
+
 		
 		if(msg.header.type == HELLO){
 			//Preenche backup-info: Username e remote_addr do server principal
@@ -480,7 +481,7 @@ int run_backup_mode() {
 			backup_info.client_addr = rem_addr;
 			strcpy(backup_info.username, (char *) msg.data);
 			
-			if(ack(listen_socket, (struct sockaddr *)&addr, clilen) < 0){
+			if(ack(backup_socket, (struct sockaddr *)&addr, clilen) < 0){
 				printf("ERROR ack at HELLO\n");
 				exit(0);
 			}

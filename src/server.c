@@ -117,6 +117,7 @@ void *thread_client_sync(void *thread_info){
 	FILE_INFO file_info;
 	struct sockaddr_in cli_addr;
 	int n, socket = info.sock_sync;
+	int i;
 
 	//Encontra os mutexes associados ao usuário
 	ENTRY to_search;
@@ -165,6 +166,15 @@ void *thread_client_sync(void *thread_info){
 					fflush(stdout);
 					receive_file(file_info, user_dir, socket);
 					printf("✅ OK!\n");
+					REMOTE_ADDR *backup_cmd_servers;
+					backup_cmd_servers =((CLIENT_MUTEX_AND_BACKUP*)(found->data))->backup_addresses;
+					char file_path[MAX_PATH_LENGTH];
+					strcpy(file_path,user_dir);
+					strcat(file_path,file_info.filename);
+					//Envia arquivo recebido para todos os servidores de backup
+					for(i = 0; i < n_backup_servers; i++){
+						send_file(backup_cmd_servers[i],file_path);
+					}
 					pthread_mutex_unlock(&((((CLIENT_MUTEX_AND_BACKUP *)(found->data))->client_mutex).sync_or_command));
                    
                     break;

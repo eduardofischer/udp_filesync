@@ -158,4 +158,7 @@ int write_packet_to_the_file(PACKET *packet, FILE *file);
 int request_hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_address, REMOTE_ADDR *sync_address);
 
 int answer_hello(CONNECTION_INFO conn, int listen_socket);
+
+/** Pede que o servidor exclua um arquivo da pasta do usuario **/
+int deleteFile(char* fileName, REMOTE_ADDR remote);
 #endif

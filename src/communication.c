@@ -309,6 +309,29 @@ int receive_file(FILE_INFO file_info, char *dir_path, int dataSocket){
 	}
 }
 
+/** Pede que o servidor exclua um arquivo da pasta do usuario **/
+int deleteFile(char* fileName, REMOTE_ADDR remote){
+    int socketDataTransfer;
+    int response;
+
+    socketDataTransfer = create_udp_socket();
+
+    if (socketDataTransfer != ERR_SOCKET){
+        response = send_command(socketDataTransfer, remote, DELETE, fileName, 0);
+        
+        if(response >= 0){
+            return SUCCESS;
+        }
+        else{
+            printf("Server didn't return ack (busy?)\n");
+            return ERR_ACK;
+        }
+    }
+    else{
+        return ERR_SOCKET; 
+    };
+};
+
 int write_packet_to_the_file(PACKET *packet, FILE *file){
     int bytes_written;
     //Sets the pointer

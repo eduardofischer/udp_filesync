@@ -24,6 +24,7 @@ void *thread_client_cmd(void *thread_info){
     COMMAND *cmd;
 	FILE_INFO file_info;
 	int n, socket = info.sock_cmd;
+	int i;
 
 	//Encontra os mutexes associados ao usuário
 	ENTRY to_search;
@@ -56,6 +57,17 @@ void *thread_client_cmd(void *thread_info){
                     printf("📝 [%s:%d] %s: CMD uploading %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, file_info.filename);
 					fflush(stdout);
 					receive_file(file_info, user_dir, socket);
+					
+					REMOTE_ADDR *backup_cmd_servers;
+					backup_cmd_servers =((CLIENT_MUTEX_AND_BACKUP*)(found->data))->backup_addresses;
+					char file_path[MAX_PATH_LENGTH];
+					strcpy(file_path,user_dir);
+					strcat(file_path,file_info.filename);
+					//Envia arquivo recebido para todos os servidores de backup
+					for(i = 0; i < n_backup_servers; i++){
+						send_file(backup_cmd_servers[i],file_path);
+					}
+					
 					printf("✅ OK!\n");
 					pthread_mutex_unlock(&((((CLIENT_MUTEX_AND_BACKUP *)(found->data))->client_mutex).sync_or_command));
                    
@@ -80,6 +92,13 @@ void *thread_client_cmd(void *thread_info){
                         printf("📝 [%s:%d] %s: CMD deleting %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);
 						fflush(stdout);
 						delete(cmd->argument, user_dir);
+						
+						REMOTE_ADDR *backup_cmd_servers;
+						backup_cmd_servers =((CLIENT_MUTEX_AND_BACKUP*)(found->data))->backup_addresses;
+						for(i = 0; i < n_backup_servers; i++){
+							deleteFile(cmd->argument,backup_cmd_servers[i]);
+						}
+						
 						printf("✅ OK!\n");
 						pthread_mutex_unlock(&((((CLIENT_MUTEX_AND_BACKUP *)(found->data))->client_mutex).sync_or_command));
                     }else
@@ -166,6 +185,7 @@ void *thread_client_sync(void *thread_info){
 					fflush(stdout);
 					receive_file(file_info, user_dir, socket);
 					printf("✅ OK!\n");
+					
 					REMOTE_ADDR *backup_cmd_servers;
 					backup_cmd_servers =((CLIENT_MUTEX_AND_BACKUP*)(found->data))->backup_addresses;
 					char file_path[MAX_PATH_LENGTH];
@@ -175,6 +195,7 @@ void *thread_client_sync(void *thread_info){
 					for(i = 0; i < n_backup_servers; i++){
 						send_file(backup_cmd_servers[i],file_path);
 					}
+					
 					pthread_mutex_unlock(&((((CLIENT_MUTEX_AND_BACKUP *)(found->data))->client_mutex).sync_or_command));
                    
                     break;
@@ -199,6 +220,13 @@ void *thread_client_sync(void *thread_info){
 						fflush(stdout);
 						if(delete(cmd->argument, user_dir) <0)
 							printf("Error deleting file : %s\n", strerror(errno));
+						
+						REMOTE_ADDR *backup_cmd_servers;
+						backup_cmd_servers =((CLIENT_MUTEX_AND_BACKUP*)(found->data))->backup_addresses;
+						for(i = 0; i < n_backup_servers; i++){
+							deleteFile(cmd->argument,backup_cmd_servers[i]);
+						}
+						
 						printf("✅ OK!\n");
                     }else
                         printf("ERROR: delete missing argument\n");
@@ -249,7 +277,7 @@ void *thread_backup_cmd(void *thread_info){
 			switch((*cmd).code){
 				case UPLOAD:
 					file_info = *((FILE_INFO*)cmd->argument);
-                    printf("📝 [%s:%d] %s: SYNC uploading %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, file_info.filename);
+                    printf("📝 [%s:%d] %s: BACKUP uploading %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, file_info.filename);
 					fflush(stdout);
 					receive_file(file_info, user_dir, socket);
 					printf("✅ OK!\n");       
@@ -257,7 +285,7 @@ void *thread_backup_cmd(void *thread_info){
 
                 case DELETE:
                     if(strlen((*cmd).argument) > 0){
-                        printf("📝 [%s:%d] %s: SYNC deleting %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);
+                        printf("📝 [%s:%d] %s: BACKUP deleting %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);
 						fflush(stdout);
 						if(delete(cmd->argument, user_dir) <0)
 							printf("Error deleting file : %s\n", strerror(errno));

@@ -56,29 +56,6 @@ int downloadFile(int socket, char *filename, char *dir_path, REMOTE_ADDR remote)
     return receive_file(file_info, dir_path, socket);
 }
 
-/** Pede que o servidor exclua um arquivo da pasta do usuario **/
-int deleteFile(char* fileName, REMOTE_ADDR remote){
-    int socketDataTransfer;
-    int response;
-
-    socketDataTransfer = create_udp_socket();
-
-    if (socketDataTransfer != ERR_SOCKET){
-        response = send_command(socketDataTransfer, remote, DELETE, fileName, 0);
-        
-        if(response >= 0){
-            return SUCCESS;
-        }
-        else{
-            printf("Server didn't return ack (busy?)\n");
-            return ERR_ACK;
-        }
-    }
-    else{
-        return ERR_SOCKET; 
-    };
-};
-
 /* Exclui um arquivo da pasta sync_dir do usuario */
 int delete_file_local(char* file_name){
     char target[FILE_NAME_SIZE];

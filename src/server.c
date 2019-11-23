@@ -9,9 +9,11 @@
 #include <unistd.h>
 
 int listen_socket, backup_socket, n_backup_servers = 0, port = PORT;
+int electing = 0;
 sem_t file_is_created;
+char hostname[MAX_NAME_LENGTH];
 REMOTE_ADDR main_server; // Servidor principal
-REMOTE_ADDR *backup_servers; // Lista de servidores de backup
+REMOTE_ADDR *backup_servers; // Lista de servidores de backup~
 
 /** 
  *  Escuta um cliente em um determinado socket 
@@ -456,23 +458,75 @@ int send_backup_hello() {
     return 0;
 }
 
+void sort_addr_list(REMOTE_ADDR *servers_list, int size) {
+	for (int i=0; i < size; i++) {
+		for (int j=0; j < size - 1; j++) {
+			if ((servers_list[j].ip > servers_list[j+1].ip) || ((servers_list[j].ip == servers_list[j+1].ip) && (servers_list[j].port > servers_list[j+1].port))) {
+				REMOTE_ADDR temp = servers_list[j];
+				servers_list[j] = servers_list[j+1];
+				servers_list[j+1] = temp;
+			}
+		}
+	}
+}
+
+int find_in_addr_list(REMOTE_ADDR key, REMOTE_ADDR *list, int size) {
+	for (int i=0; i < size; i++) {
+		if(list[i].ip == key.ip && list[i].port == key.port)
+			return i; 
+	}
+
+	return -1;
+}
+
 int update_backup_lists() {
-	int i;
+	int i, index, n_higher_servers;
 	PACKET packet;
 	REMOTE_ADDR thisBackup;
 
+	sort_addr_list(backup_servers, n_backup_servers);
+
 	packet.header.type = BACKUP;
-	memcpy(&packet.data, &n_backup_servers, sizeof(int));
-	memcpy((char* )&packet.data + sizeof(int), backup_servers, sizeof(REMOTE_ADDR) * n_backup_servers);
 
 	for(i=0; i < n_backup_servers; i++){
-		thisBackup = backup_servers[i];	
+		thisBackup = backup_servers[i];
+		index = find_in_addr_list(thisBackup, backup_servers, n_backup_servers);
+
+		n_higher_servers = n_backup_servers - index - 1;
+
+		memcpy(&packet.data, &n_higher_servers, sizeof(int));
+		memcpy((char*)&packet.data + sizeof(int), &backup_servers[index + 1], sizeof(REMOTE_ADDR) * n_higher_servers);
 		
 		if(send_packet(listen_socket, thisBackup, packet, 500) < 0)
 			printf("%s:%d couldn't be reached\n", inet_ntoa(*(struct in_addr *) &thisBackup.ip), thisBackup.port);
 	}
-	
+
 	return 0;
+}
+
+int declare_main_server() {
+	// AVISAR CLIENTES DO NOVO MAIN SERVER AQUI
+	// FAZER A TRANSIÇÃO BACKUP -> MAIN_SERVER AQUI
+	printf("⭐  I AM THE NEW MAIN SERVER!\n");
+
+	return 0;
+}
+
+int send_election_msg(REMOTE_ADDR server) {
+	PACKET msg;
+	msg.header.type = ELECTION;
+	return send_packet(backup_socket, server, msg, 500);
+}
+
+void start_election() {
+	int i;
+
+	for (i=0; i < n_backup_servers; i++) {
+		if(send_election_msg(backup_servers[i]) == 0)
+			return;
+	}
+
+	declare_main_server();
 }
 
 void *is_server_alive(){
@@ -482,11 +536,17 @@ void *is_server_alive(){
 	msg.header.type = ALIVE;
 
 	while(1) {
-		sleep(2);
-		if(send_packet(alive_socket, main_server, msg, 500) < 0) {
-			printf("🚨  Main server is down! Starting election\n");
+		sleep(1);
+		if (electing == 0){
+			if(send_packet(alive_socket, main_server, msg, 500) < 0) {
+				electing = 1;
+				printf("🚨  Main server is down! Starting election\n");
+				start_election();
+			}
 		}
 	}
+
+	return NULL;
 }
 
 int new_backup(CLIENT_INFO* backup_info){
@@ -552,10 +612,11 @@ int run_backup_mode() {
 			n_backup_servers = (int) *(msg.data);
 			backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 			memcpy(backup_servers, (char* )&(msg.data) + sizeof(int), sizeof(REMOTE_ADDR) * n_backup_servers);
-
-			list_backup_servers();		
+		} else if(msg.header.type == ELECTION) {
+			if(electing == 0)
+				start_election();
 		} else
-			printf("📡 [%s:%d] WARNING: Message ignored by backup_socket.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
+			printf("📡 [%s:%d] WARNING: Message ignored by backup_socket: %s\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, (char *)msg.data);
 	}
 
 	return 0;
@@ -648,7 +709,6 @@ int run_server_mode() {
 			backup_servers[n_backup_servers - 1] = rem_addr;
 			printf("💾  NEW BACKUP SERVER: %s:%d \n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
 
-			list_backup_servers();
 			update_backup_lists();
 		} else if(msg.header.type == ALIVE) {
 			// Ack enviado pela recv_packet
@@ -660,7 +720,6 @@ int run_server_mode() {
 
 int main(int argc, char *argv[]){
 	int opt, backup_mode = 0;
-	char hostname[MAX_NAME_LENGTH];
 	struct hostent *main_host;
 
 	// Processa os argumentos passados na linha de comando

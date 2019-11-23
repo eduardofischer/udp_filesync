@@ -90,7 +90,6 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int msec_timeout){
     tv.tv_usec = 0;
     setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
-
     return successfully_sent;
 }
 

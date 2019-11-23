@@ -35,13 +35,14 @@
 #define PACKET_SIZE 65000
 
 /** Tipos de pacotes */
-#define ERR     0xFF
-#define HELLO   0x00
-#define ACK     0x01
-#define DATA    0x02
-#define CMD     0x03
-#define BACKUP  0x04
-#define ALIVE   0x05
+#define ERR         0xFF
+#define HELLO       0x00
+#define ACK         0x01
+#define DATA        0x02
+#define CMD         0x03
+#define BACKUP      0x04
+#define ALIVE       0x05
+#define ELECTION    0x06
 
 /** Codigos dos comandos **/
 #define UPLOAD   0x04
@@ -124,7 +125,7 @@ uint16_t get_socket_port(int socket);
  *           -1 (Error)
  *           -2 (Time out)
  **/ 
-int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int usec_timeout);
+int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int msec_timeout);
 
 int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout);
 

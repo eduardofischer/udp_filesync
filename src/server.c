@@ -682,7 +682,7 @@ int run_backup_mode() {
 				if(new_backup(&backup_info) < 0)
 					printf("ERROR creating backup socket and thread\n");
 
-				printf("New client connected");
+				printf("New client connected - %s", backup_info.username);
 				break;
 
 			case BACKUP:
@@ -690,6 +690,7 @@ int run_backup_mode() {
 				backup_index = (int) *(msg.data + sizeof(int));
 				backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
+				printf("New backup server connected.");
 				break;
 
 			case ELECTION:
@@ -697,6 +698,7 @@ int run_backup_mode() {
 					electing = 1;
 					start_election();
 				}
+				printf("New Election!");
 				break;
 
 			case NEW_DEVICE:

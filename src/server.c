@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 
-int listen_socket, port = PORT, inform_device = 666;
+int listen_socket, port = PORT, inform_device = 3034;
 int front_end_port = FRONT_END_PORT;
 int backup_mode = 0;
 int backup_transition = 0;
@@ -570,9 +570,12 @@ int declare_main_server(int socket) {
 			send_packet(socket, backup_servers[i], msg, 500);
 	}
 
+
 	backup_mode = 0;
 	backup_transition = 1;
-
+	msg.header.type = NONE;
+	//Para retirar o server de backup do while
+	send_packet(socket,backup_servers[backup_index],msg,1);
 	return 0;
 }
 

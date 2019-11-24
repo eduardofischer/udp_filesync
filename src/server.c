@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 
-int listen_socket, port = PORT, inform_device = 3034;
+int listen_socket, port = PORT, inform_device = 3034, backup_port = 5757;
 int front_end_port = FRONT_END_PORT;
 int backup_mode = 0;
 int backup_transition = 0;
@@ -664,7 +664,7 @@ int run_backup_mode() {
 
 	// Cria o socket UDP para conexão de novos clientes
     backup_socket = create_udp_socket();
-    backup_socket = bind_udp_socket(backup_socket, INADDR_ANY, port);
+    backup_socket = bind_udp_socket(backup_socket, INADDR_ANY, backup_port);
 
 	send_backup_hello(); // Conecta com o servidor principal
 
@@ -890,7 +890,7 @@ int main(int argc, char *argv[]){
 	while (1){
 		if(backup_mode){
 			// FAZER AS COISAS DO BACKUP MODE AQUI
-			printf("✅  Server running at %s:%d (BACKUP SERVER)\n", hostname, port);
+			printf("✅  Server running at %s:%d (BACKUP SERVER)\n", hostname, backup_port);
 			printf("    Main server: %s\n\n", inet_ntoa(*(struct in_addr *) &main_server.ip));
 			run_backup_mode();
 		}else{

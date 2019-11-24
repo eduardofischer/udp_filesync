@@ -522,13 +522,36 @@ void sort_addr_list(REMOTE_ADDR *servers_list, int size) {
 	}
 }
 
-int find_in_addr_list(REMOTE_ADDR key, REMOTE_ADDR *list, int size) {
-	for (int i=0; i < size; i++) {
-		if(list[i].ip == key.ip && list[i].port == key.port)
-			return i; 
+int delete_addr_list(REMOTE_ADDR key, REMOTE_ADDR *list, int *size) {
+	int found = -1;
+
+	for (int i=0; i < *size; i++) {
+		if (found == 0)
+			list[i - 1] = list[i];
+		else if(list[i].ip == key.ip && list[i].port == key.port)
+			found = 0;
 	}
 
-	return -1;
+	if (found == 0)
+		(*size)--;
+
+	return found;
+}
+
+int delete_addr_list_index(int index, REMOTE_ADDR *list, int *size) {
+	int found = -1;
+
+	for (int i=0; i < *size; i++) {
+		if (found == 0)
+			list[i - 1] = list[i];
+		else if (i == index) 
+			found = 0;
+	}
+
+	if (found == 0)
+		(*size)--;
+
+	return found;
 }
 
 int update_backup_lists() {
@@ -576,7 +599,7 @@ int declare_main_server(int socket) {
 	backup_transition = 1;
 	//Para retirar o server de backup do while
 	msg.header.type = 0xF1;
-	send_packet(socket, backup_servers[backup_index], msg, 1);
+	send_packet(socket, backup_servers[backup_index], msg, 500);
 	return 0;
 }
 
@@ -591,8 +614,11 @@ void start_election() {
 	int election_socket = create_udp_socket();
 
 	for (i=backup_index + 1; i < n_backup_servers; i++) {
-		if(send_election_msg(election_socket, backup_servers[i]) == 0)
-			return;
+		if(i != backup_index) {
+			printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+			if(send_election_msg(election_socket, backup_servers[i]) == 0)
+				return;
+		}
 	}
 
 	declare_main_server(election_socket);
@@ -608,7 +634,7 @@ void *is_server_alive(){
 
 	while(1) {
 		sleep(1);
-		if (electing == 0){
+		if (electing == 0) {
 			if(send_packet(alive_socket, main_server, msg, 500) < 0) {
 				if (electing == 0) {
 					electing = 1;
@@ -616,6 +642,9 @@ void *is_server_alive(){
 					start_election();
 				}
 			}
+		} else {
+			// Caso esteja ocorendo uma eleição, espera 5 segundos até tentar novamente
+			sleep(5);
 		}
 	}
 
@@ -690,7 +719,10 @@ int run_backup_mode() {
 				backup_index = (int) *(msg.data + sizeof(int));
 				backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
-				printf("New backup server connected\n");
+				printf("Index: %d, N: %d\n", backup_index, n_backup_servers);
+				printf("Backups list updated:");
+				list_backup_servers();
+				electing = 0;
 				break;
 
 			case ELECTION:
@@ -698,17 +730,17 @@ int run_backup_mode() {
 					electing = 1;
 					start_election();
 				}
-				printf("New Election!");
 				break;
 
 			case NEW_DEVICE:
 				n_devices++;
 				connected_devices = realloc(connected_devices, sizeof(REMOTE_ADDR) * n_devices);
 				connected_devices[n_devices-1] = *((REMOTE_ADDR*)msg.data);
-				printf("New device [%s:%d] has logged. ", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
+				printf("New device [%s:%d] has logged\n", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
 				break;
 
 			case NEW_LEADER:
+				electing = 1;
 				main_server.ip = rem_addr.ip;
 				main_server.port = PORT;
 				printf("⭐  %s:%d is the new main server!\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), main_server.port);
@@ -737,9 +769,7 @@ int run_server_mode() {
 	inform_device_socket = bind_udp_socket(inform_device_socket,INADDR_ANY,inform_device);
 
 	if(listen_socket < 0)
-        return -1;
-
-	backup_servers = malloc(sizeof(REMOTE_ADDR));
+        exit(0);
 
 	//Caso houve uma transição, é necessário informar o front_end dos clientes a respeito do novo main_server.
 	if (backup_transition){
@@ -756,6 +786,10 @@ int run_server_mode() {
 		}
 
 		close(new_server_socket);
+
+		delete_addr_list_index(backup_index, backup_servers, &n_backup_servers);
+		update_backup_lists();
+
 		backup_transition = 0;
 	}
 

@@ -9,16 +9,15 @@
 #include <unistd.h>
 
 
-int listen_socket, port = PORT, inform_device = 3034, backup_port = 5757;
+int listen_socket, port = PORT, inform_device = 3034;
 int front_end_port = FRONT_END_PORT;
-int backup_mode = 0;
-int backup_transition = 0;
+int backup_mode = 0, backup_transition = 0;
 int backup_index, backup_socket, n_backup_servers = 0, electing = 0, n_devices = 0;
 sem_t file_is_created;
 char hostname[MAX_NAME_LENGTH];
 REMOTE_ADDR main_server; // Servidor principal
 REMOTE_ADDR *backup_servers; // Lista de servidores de backup~
-REMOTE_ADDR *devices_connected; //Lista de devices (USADO SOMENTE EM SERVIDORES DE BACKUP)
+REMOTE_ADDR *connected_devices; //Lista de devices (USADO SOMENTE EM SERVIDORES DE BACKUP)
 
 /** 
  *  Escuta um cliente em um determinado socket 
@@ -342,13 +341,14 @@ int new_client(CLIENT_INFO *client){
 	thread_info.tid_sync = thr_sync;
 	pthread_create(&thr_cmd, NULL, thread_client_cmd, &thread_info);
 
-	if(answer_hello(conn_info,listen_socket) < 0){
+	if(reply_hello(conn_info,listen_socket) < 0){
 		printf("ERROR responding HELLO message\n");
 		return -1;
 	}
 
     return 0;
 }
+
 int sync_user(int socket, char *user_dir, REMOTE_ADDR client_addr){
 	DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
 	int n_server_ent;
@@ -497,7 +497,7 @@ void add_user_to_hashtable(CLIENT_INFO client_info) {
 			REMOTE_ADDR new_backup_server_cmd;
 			new_backup_server_cmd.ip = backup_servers[i].ip;
 			REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
-			request_hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync);
+			hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync);
 			//backup_adresses[i] = new_backup_server_cmd recebido
 			*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
 		}
@@ -570,12 +570,10 @@ int declare_main_server(int socket) {
 			send_packet(socket, backup_servers[i], msg, 500);
 	}
 
-
 	backup_mode = 0;
 	backup_transition = 1;
-	msg.header.type = NONE;
 	//Para retirar o server de backup do while
-	send_packet(socket,backup_servers[backup_index],msg,1);
+	send_packet(socket, backup_servers[backup_index], msg, 1);
 	return 0;
 }
 
@@ -633,7 +631,7 @@ int new_backup(CLIENT_INFO* backup_info){
 		printf("Erro ao criar socket para backup do usuário %s", backup_info->username);
 	}
 
-	bind_udp_socket(socket_usr_backup,INADDR_ANY,0);
+	bind_udp_socket(socket_usr_backup, INADDR_ANY, 0);
 	//Preenche informações de conexão à serem mandadas pro server principal
 	conn_info.client = *(backup_info);
 	conn_info.ports.port_cmd = get_socket_port(socket_usr_backup);
@@ -646,7 +644,7 @@ int new_backup(CLIENT_INFO* backup_info){
 
 	pthread_create(&usr_backup, NULL, thread_backup_cmd, (void *)&thread_info);
 
-	if(answer_hello(conn_info,backup_socket) < 0){
+	if(reply_hello(conn_info,backup_socket) < 0){
 		printf("ERROR responding HELLO message\n");
 		return -1;
 	}
@@ -664,7 +662,7 @@ int run_backup_mode() {
 
 	// Cria o socket UDP para conexão de novos clientes
     backup_socket = create_udp_socket();
-    backup_socket = bind_udp_socket(backup_socket, INADDR_ANY, backup_port);
+    backup_socket = bind_udp_socket(backup_socket, INADDR_ANY, port);
 
 	send_backup_hello(); // Conecta com o servidor principal
 
@@ -698,14 +696,14 @@ int run_backup_mode() {
 
 			case NEW_DEVICE:
 				n_devices++;
-				devices_connected = realloc(devices_connected,sizeof(REMOTE_ADDR) * n_devices);
-				devices_connected[n_devices-1] = *((REMOTE_ADDR*)&msg.data);
+				connected_devices = realloc(connected_devices, sizeof(REMOTE_ADDR) * n_devices);
+				connected_devices[n_devices-1] = *((REMOTE_ADDR*)&msg.data);
 				break;
 
 			case NEW_LEADER:
 				main_server.ip = rem_addr.ip;
 				main_server.port = PORT;
-				printf("⭐  %s:%d is the new main server!\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), PORT);
+				printf("⭐  %s:%d is the new main server!\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), main_server.port);
 				break;
 			
 			default:
@@ -723,7 +721,6 @@ int run_server_mode() {
 	CLIENT_INFO client_info;
 	int i, inform_device_socket;
 
-
 	// Cria o socket UDP para conexão de novos clientes
     listen_socket = create_udp_socket();
     listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, PORT);
@@ -739,15 +736,18 @@ int run_server_mode() {
 	//Caso houve uma transição, é necessário informar o front_end dos clientes a respeito do novo main_server.
 	if (backup_transition){
 		PACKET new_server_msg;
-		int new_server_socket = create_udp_socket();
-		new_server_socket = bind_udp_socket(new_server_socket,INADDR_ANY,front_end_port);
 
+		int new_server_socket = create_udp_socket();
+		new_server_socket = bind_udp_socket(new_server_socket, INADDR_ANY, 0);
 		
-		memcpy(new_server_msg.data,&port,sizeof(int));
+		memcpy(new_server_msg.data, &port, sizeof(int));
+
 		for(i = 0; i < n_devices; i++){
 			//TO-DO:mudar_timeout.
-			send_packet(new_server_socket,devices_connected[i],new_server_msg,0);
+			send_packet(new_server_socket, connected_devices[i], new_server_msg, 0);
 		}
+
+		close(new_server_socket);
 		backup_transition = 0;
 	}
 
@@ -805,7 +805,7 @@ int run_server_mode() {
 						REMOTE_ADDR new_backup_server_cmd;
 						new_backup_server_cmd.ip = backup_servers[i].ip;
 						REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
-						request_hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync);
+						hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync);
 						//backup_adresses[i] = new_backup_server_cmd recebido
 						*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
 					}
@@ -890,12 +890,12 @@ int main(int argc, char *argv[]){
 	while (1){
 		if(backup_mode){
 			// FAZER AS COISAS DO BACKUP MODE AQUI
-			printf("✅  Server running at %s:%d (BACKUP SERVER)\n", hostname, backup_port);
+			printf("✅  Server running at %s:%d (BACKUP SERVER)\n", hostname, port);
 			printf("    Main server: %s\n\n", inet_ntoa(*(struct in_addr *) &main_server.ip));
 			run_backup_mode();
 		}else{
 			// FAZER AS COISAS DO MAIN SERVER AQUI
-			printf("✅  Server running at %s:%d (MAIN SERVER)\n\n", hostname, port);
+			printf("✅  Server running at %s:%d (MAIN SERVER)\n\n", hostname, PORT);
 			run_server_mode();
 		}
 	}

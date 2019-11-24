@@ -11,7 +11,6 @@
 #include "../include/communication.h"
 #include "../include/filesystem.h"
 
-int front_end_port = FRONT_END_PORT;
 int sock_cmd, sock_sync;
 char username[64];
 REMOTE_ADDR server_cmd;
@@ -356,9 +355,30 @@ void interruption_handler(int sig){
     exit(0);
 }
 
+void *front_end(){
+    PACKET msg;
+    int front_end_socket;
+
+    front_end_socket = create_udp_socket();
+    front_end_socket = bind_udp_socket(front_end_socket, INADDR_ANY, FRONT_END_PORT);
+
+    while (1){
+        REMOTE_ADDR new_server_addr;
+        //Recebe uma mensagem qualquer do servidor indicando que há um novo server principal.
+        recv_packet(front_end_socket, &new_server_addr, &msg, 0);
+
+        sleep(200);
+
+        new_server_addr.port = PORT;
+        printf("Sending hello\n");
+        hello(username, front_end_socket, new_server_addr, &server_cmd, &server_sync);
+        printf("Sent hello\n");
+    }
+}
+
 int main(int argc, char const *argv[]){
     struct hostent *host;
-    pthread_t sync_thread;
+    pthread_t sync_thread, front_end_thread;
 
     if(argc < 3){
         fprintf(stderr, "ERROR! Invalid number of arguments.\n");
@@ -394,7 +414,7 @@ int main(int argc, char const *argv[]){
     }
 
     // Conecta com o servidor e atualiza as portas
-    if(request_hello(username,sock_cmd,server_cmd,&server_cmd,&server_sync) < 0)
+    if(hello(username,sock_cmd,server_cmd,&server_cmd,&server_sync) < 0)
         fprintf(stderr,"ERROR connecting to server\n");
 
     // Captura o evento CTRL + C
@@ -403,27 +423,10 @@ int main(int argc, char const *argv[]){
     printf("📡 Client connected to %s:%d\n", inet_ntoa(*(struct in_addr *) &server_cmd.ip), server_cmd.port);
 
     pthread_create(&sync_thread, NULL, sync_files, NULL);
+    pthread_create(&front_end_thread, NULL, front_end, NULL);
 
     rl_attempted_completion_function = cmd_completion;
     run_cli(sock_cmd);
     
     return 0;
-}
-
-void *front_end(){
-    PACKET msg;
-    int front_end_socket;
-
-    front_end_socket = create_udp_socket();
-    front_end_socket = bind_udp_socket(front_end_socket,INADDR_ANY,front_end_port);
-
-    while (1){
-        REMOTE_ADDR new_server_addr;
-        //Recebe uma mensagem qualquer do servidor indicando que há um novo server principal.
-        recv_packet(front_end_socket,&new_server_addr,&msg,0);
-
-        new_server_addr.port = PORT;
-        request_hello(username,front_end_socket,new_server_addr,&server_cmd,&server_sync);
-    }
-
 }

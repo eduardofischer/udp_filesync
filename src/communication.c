@@ -192,17 +192,14 @@ int send_upload(int socket, REMOTE_ADDR server, FILE_INFO *file_info){
 int send_new_device(int socket, REMOTE_ADDR server, REMOTE_ADDR *device_addr){
     PACKET packet;
 
-
     //Prepara o pacote de comando
     packet.header.type = NEW_DEVICE;
     packet.header.seqn = 0;
     packet.header.total_size = 1;
     packet.header.length = sizeof(PACKET);
-
-    
     
     //Copia device_addr para o argumento de comando genérico, para não quebrar com a estrutura padrão.
-    memcpy(packet.data,device_addr, sizeof(REMOTE_ADDR));
+    memcpy(packet.data, device_addr, sizeof(REMOTE_ADDR));
     return send_packet(socket, server, packet, 0);
 }
 
@@ -373,7 +370,7 @@ int write_packet_to_the_file(PACKET *packet, FILE *file){
  *  Retorna a porta com a qual o cliente deve se comunicar
  *  ou -1 em caso de erro
 */
-int request_hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_address, REMOTE_ADDR *sync_address){
+int hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_address, REMOTE_ADDR *sync_address){
     PACKET packet, response;
     int n;
 
@@ -387,8 +384,8 @@ int request_hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_AD
         return -1;;
     }
 
-    if(recv_packet(socket, NULL, &response, 0) < 0){
-        printf("ERROR recv_packet\n");
+    if(recv_packet(socket, NULL, &response, 500) < 0){
+        printf("ERROR hello: timeout\n");
         return -1;
     }
 
@@ -400,7 +397,7 @@ int request_hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_AD
     return 0;
 }
 
-int answer_hello(CONNECTION_INFO conn, int listen_socket){
+int reply_hello(CONNECTION_INFO conn, int listen_socket){
 	PACKET packet;
 
 	packet.header.type = HELLO;

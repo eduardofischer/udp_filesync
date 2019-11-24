@@ -8,8 +8,8 @@
 #include <search.h>
 #include <unistd.h>
 
-int listen_socket, backup_socket, n_backup_servers = 0, port = PORT;
-int electing = 0;
+int listen_socket, port = PORT;
+int backup_index, backup_socket, n_backup_servers = 0, electing = 0;
 sem_t file_is_created;
 char hostname[MAX_NAME_LENGTH];
 REMOTE_ADDR main_server; // Servidor principal
@@ -480,7 +480,7 @@ int find_in_addr_list(REMOTE_ADDR key, REMOTE_ADDR *list, int size) {
 }
 
 int update_backup_lists() {
-	int i, index, n_higher_servers;
+	int i;
 	PACKET packet;
 	REMOTE_ADDR thisBackup;
 
@@ -490,12 +490,13 @@ int update_backup_lists() {
 
 	for(i=0; i < n_backup_servers; i++){
 		thisBackup = backup_servers[i];
-		index = find_in_addr_list(thisBackup, backup_servers, n_backup_servers);
 
-		n_higher_servers = n_backup_servers - index - 1;
+		// Estrutura da msg:
+		// [ INT n_backup_servers ][ INT i ][ REMOTE_ADDR backup_servers[] ]
 
-		memcpy(&packet.data, &n_higher_servers, sizeof(int));
-		memcpy((char*)&packet.data + sizeof(int), &backup_servers[index + 1], sizeof(REMOTE_ADDR) * n_higher_servers);
+		memcpy(packet.data, &n_backup_servers, sizeof(int));
+		memcpy(packet.data + sizeof(int), &i, sizeof(int));
+		memcpy(packet.data + sizeof(int)*2, backup_servers, sizeof(REMOTE_ADDR) * n_backup_servers);
 		
 		if(send_packet(listen_socket, thisBackup, packet, 500) < 0)
 			printf("%s:%d couldn't be reached\n", inet_ntoa(*(struct in_addr *) &thisBackup.ip), thisBackup.port);
@@ -515,18 +516,14 @@ int declare_main_server() {
 int send_election_msg(int socket, REMOTE_ADDR server) {
 	PACKET msg;
 	msg.header.type = ELECTION;
-	return send_packet(socket, server, msg, 1000);
+	return send_packet(socket, server, msg, 500);
 }
 
 void start_election() {
 	int i;
 	int election_socket = create_udp_socket();
 
-	electing = 1;
-
-	//list_backup_servers();
-
-	for (i=0; i < n_backup_servers; i++) {
+	for (i=backup_index + 1; i < n_backup_servers; i++) {
 		if(send_election_msg(election_socket, backup_servers[i]) == 0)
 			return;
 	}
@@ -547,8 +544,9 @@ void *is_server_alive(){
 		if (electing == 0){
 			if(send_packet(alive_socket, main_server, msg, 500) < 0) {
 				if (electing == 0) {
-					start_election();
+					electing = 1;
 					printf("🚨  Main server is down! Starting election\n");
+					start_election();
 				}
 			}
 		}
@@ -618,11 +616,14 @@ int run_backup_mode() {
 
 		} else if(msg.header.type == BACKUP) {
 			n_backup_servers = (int) *(msg.data);
+			backup_index = (int) *(msg.data + sizeof(int));
 			backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
-			memcpy(backup_servers, (char* )&(msg.data) + sizeof(int), sizeof(REMOTE_ADDR) * n_backup_servers);
+			memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
 		} else if(msg.header.type == ELECTION) {
-			if(electing == 0)
+			if(electing == 0){
+				electing = 1;
 				start_election();
+			}
 		} else
 			printf("📡 [%s:%d] WARNING: Message ignored by backup_socket: %x\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, msg.header.type);
 	}

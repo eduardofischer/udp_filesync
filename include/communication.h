@@ -21,6 +21,7 @@
 #define MAX_TIMEOUTS 3
 
 #define PORT 4000
+#define FRONT_END_PORT 4747
 
 /**Erros */
 #define ERR_SOCKET -1
@@ -43,6 +44,7 @@
 #define BACKUP      0x04
 #define ALIVE       0x05
 #define ELECTION    0x06
+#define NEW_DEVICE  0x07
 
 /** Codigos dos comandos **/
 #define UPLOAD   0x04
@@ -52,6 +54,7 @@
 #define LST_CLI  0x08
 #define SYNC_DIR 0x09
 #define EXIT     0x10
+
 
 typedef struct FileInfo{
     time_t modification_time;
@@ -162,4 +165,6 @@ int answer_hello(CONNECTION_INFO conn, int listen_socket);
 
 /** Pede que o servidor exclua um arquivo da pasta do usuario **/
 int deleteFile(char* fileName, REMOTE_ADDR remote);
+
+int send_new_device(int socket, REMOTE_ADDR server, REMOTE_ADDR *device_addr);
 #endif

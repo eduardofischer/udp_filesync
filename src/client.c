@@ -10,7 +10,8 @@
 #include "../include/client.h"
 #include "../include/communication.h"
 #include "../include/filesystem.h"
-    
+
+int front_end_port = FRONT_END_PORT;
 int sock_cmd, sock_sync;
 char username[64];
 REMOTE_ADDR server_cmd;
@@ -407,4 +408,21 @@ int main(int argc, char const *argv[]){
     run_cli(sock_cmd);
     
     return 0;
+}
+
+void *front_end(){
+    PACKET msg;
+    int front_end_socket;
+
+    front_end_socket = create_udp_socket();
+    front_end_socket = bind_udp_socket(front_end_socket,INADDR_ANY,front_end_port);
+
+    while (1){
+        REMOTE_ADDR new_server_addr;
+        //Recebe uma mensagem qualquer do servidor indicando que há um novo server principal.
+        recv_packet(front_end_socket,&new_server_addr,&msg,0);
+
+        request_hello(username,front_end_socket,new_server_addr,&server_cmd,&server_sync);
+    }
+
 }

@@ -9,11 +9,12 @@
 #include <unistd.h>
 
 int listen_socket, port = PORT;
-int backup_index, backup_socket, n_backup_servers = 0, electing = 0;
+int backup_index, backup_socket, n_backup_servers = 0, electing = 0, n_devices = 0;
 sem_t file_is_created;
 char hostname[MAX_NAME_LENGTH];
 REMOTE_ADDR main_server; // Servidor principal
 REMOTE_ADDR *backup_servers; // Lista de servidores de backup~
+REMOTE_ADDR *devices_connected; //Lista de devices (USADO SOMENTE EM SERVIDORES DE BACKUP)
 
 /** 
  *  Escuta um cliente em um determinado socket 
@@ -624,7 +625,11 @@ int run_backup_mode() {
 				electing = 1;
 				start_election();
 			}
-		} else
+		} else if(msg.header.type == NEW_DEVICE){
+			n_devices++;
+			devices_connected = realloc(devices_connected,sizeof(REMOTE_ADDR) * n_devices);
+			devices_connected[n_devices-1] = *((REMOTE_ADDR*)&msg.data);
+		}else
 			printf("📡 [%s:%d] WARNING: Message ignored by backup_socket: %x\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, msg.header.type);
 	}
 
@@ -662,6 +667,13 @@ int run_server_mode() {
 			strcpy(client_info.username, (char *) msg.data);
 
 			user_to_search.key = client_info.username;
+			REMOTE_ADDR device_addr;
+			device_addr.ip = client_info.client_addr.ip;
+			device_addr.port = FRONT_END_PORT;
+			//Independente do usuário, é necessário notificar um novo device para os servidores de backup
+			for(i = 0; i < n_backup_servers; i++){
+				send_new_device(listen_socket, backup_servers[i], &device_addr);
+			}
 
 			// HASH TABLE
 			//Caso tenha achado um usuário, incrementa o número de usuários logados

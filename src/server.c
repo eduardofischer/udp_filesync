@@ -24,11 +24,11 @@ REMOTE_ADDR *connected_devices; //Lista de devices (USADO SOMENTE EM SERVIDORES 
 void *thread_client_cmd(void *thread_info){
 	char user_dir[MAX_PATH_LENGTH], download_file_path[MAX_PATH_LENGTH];
 	THREAD_INFO info = *((THREAD_INFO *) thread_info);
-	REMOTE_ADDR addr = info.client.client_addr;
+	REMOTE_ADDR addr;
 	PACKET msg;
     COMMAND *cmd;
 	FILE_INFO file_info;
-	int n, socket = info.sock_cmd;
+	int socket = info.sock_cmd;
 	int i;
 
 	//Encontra os mutexes associados ao usuário
@@ -45,9 +45,7 @@ void *thread_client_cmd(void *thread_info){
 	strcat(user_dir, "/");
 
     while(1){
-		n = recv_packet(socket, NULL, &msg, 0);
-
-		if (n < 0){
+		if (recv_packet(socket, &addr, &msg, 0) < 0){
 			printf("ERROR recvfrom:  %s\n", strerror(errno));
 			pthread_exit(NULL);
 		}
@@ -135,11 +133,10 @@ void *thread_client_cmd(void *thread_info){
 void *thread_client_sync(void *thread_info){
 	char user_dir[MAX_PATH_LENGTH], download_file_path[MAX_PATH_LENGTH];
 	THREAD_INFO info = *((THREAD_INFO *) thread_info);
-	REMOTE_ADDR addr = info.client.client_addr;
+	REMOTE_ADDR addr;
 	PACKET msg;
 	COMMAND *cmd;
 	FILE_INFO file_info;
-	struct sockaddr_in cli_addr;
 	int n, socket = info.sock_sync;
 	int i;
 
@@ -153,11 +150,6 @@ void *thread_client_sync(void *thread_info){
 
 	sem_wait(&file_is_created);
 	sem_destroy(&file_is_created);
-
-	cli_addr.sin_family = AF_INET;
-    cli_addr.sin_port = htons(addr.port);
-    cli_addr.sin_addr.s_addr = addr.ip;
-    bzero(&(cli_addr.sin_zero), 8);
 
 	// Path da pasta do usuário no servidor
 	strcpy(user_dir, SERVER_DIR);	

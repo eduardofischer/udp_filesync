@@ -19,7 +19,7 @@
 #define MAX_NAME_LENGTH 50
 #define FILE_NAME_SIZE 255
 #define MAX_TIMEOUTS 3
-#define DEFAULT_TIMEOUT 500
+#define DEFAULT_TIMEOUT 500 // ms
 
 #define PORT 4000
 #define FRONT_END_PORT 4747

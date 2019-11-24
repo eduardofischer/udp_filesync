@@ -200,7 +200,7 @@ int send_new_device(int socket, REMOTE_ADDR server, REMOTE_ADDR *device_addr){
     
     //Copia device_addr para o argumento de comando genérico, para não quebrar com a estrutura padrão.
     memcpy(packet.data, device_addr, sizeof(REMOTE_ADDR));
-    return send_packet(socket, server, packet, 0);
+    return send_packet(socket, server, packet, 500);
 }
 
 /** Envia o arquivo para o servidor **/
@@ -377,7 +377,7 @@ int hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_
     packet.header.type = HELLO;
     strcpy((char *)&(packet.data), username);
 
-    n = send_packet(socket, destination, packet, 0);
+    n = send_packet(socket, destination, packet, 500);
 
     if (n < 0){
         fprintf(stderr, "ERROR! HELLO failed\n");

@@ -12,7 +12,7 @@
 int listen_socket, port = PORT, inform_device = 3034;
 int front_end_port = FRONT_END_PORT;
 int backup_mode = 0, backup_transition = 0;
-int backup_index, backup_socket, n_backup_servers = 0, electing = 0, n_devices = 0;
+int backup_index = 9999, backup_socket, n_backup_servers = 0, electing = 0, n_devices = 0;
 sem_t file_is_created;
 char hostname[MAX_NAME_LENGTH];
 REMOTE_ADDR main_server; // Servidor principal
@@ -775,8 +775,10 @@ int run_server_mode() {
 				strcpy(client_info.username, (char *) msg.data);
 
 				//Independente do usuário, é necessário notificar um novo device para os servidores de backup
-				for(i = 0; i < n_backup_servers; i++)
-					send_new_device(inform_device_socket, backup_servers[i], &device_addr);
+				for(i = 0; i < n_backup_servers; i++){
+					if(i != backup_index)
+						send_new_device(inform_device_socket, backup_servers[i], &device_addr);
+				}
 
 				// HASH TABLE
 				//add_user_to_hashtable(client_info);

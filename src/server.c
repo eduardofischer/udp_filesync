@@ -678,6 +678,8 @@ int run_backup_mode() {
 
 				if(new_backup(&backup_info) < 0)
 					printf("ERROR creating backup socket and thread\n");
+
+				printf("New client connected");
 				break;
 
 			case BACKUP:
@@ -698,6 +700,7 @@ int run_backup_mode() {
 				n_devices++;
 				connected_devices = realloc(connected_devices, sizeof(REMOTE_ADDR) * n_devices);
 				connected_devices[n_devices-1] = *((REMOTE_ADDR*)&msg.data);
+				printf("New device [%s:%d] has logged. ", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
 				break;
 
 			case NEW_LEADER:

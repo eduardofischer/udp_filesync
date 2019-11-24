@@ -139,7 +139,7 @@ int getSyncDir(){
 
 /** Fecha a sessão com o servidor **/
 int exit_client(){
-    return send_command(sock_cmd, server_cmd, EXIT, NULL, 500);
+    return send_command(sock_cmd, server_cmd, EXIT, NULL, DEFAULT_TIMEOUT);
 };
 
 

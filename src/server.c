@@ -10,7 +10,6 @@
 
 
 int listen_socket, port = PORT, inform_device = 3034;
-int front_end_port = FRONT_END_PORT;
 int backup_mode = 0, backup_transition = 0;
 int backup_index = -1, backup_socket, n_backup_servers = 0, electing = 0, n_devices = 0;
 sem_t file_is_created;
@@ -573,7 +572,7 @@ int update_backup_lists() {
 		memcpy(packet.data + sizeof(int), &i, sizeof(int));
 		memcpy(packet.data + sizeof(int)*2, backup_servers, sizeof(REMOTE_ADDR) * n_backup_servers);
 		
-		if(send_packet(listen_socket, thisBackup, packet, 500) < 0)
+		if(send_packet(listen_socket, thisBackup, packet, DEFAULT_TIMEOUT) < 0)
 			printf("%s:%d couldn't be reached\n", inet_ntoa(*(struct in_addr *) &thisBackup.ip), thisBackup.port);
 	}
 
@@ -590,8 +589,8 @@ int declare_main_server(int socket) {
 	// Informa os demais backup_servers
 	for (i=0; i < n_backup_servers; i++){
 		if (i != backup_index) {
-			send_packet(socket, backup_servers[i], msg, 500);
-			printf("Sending NEW_LEADER to %s:%d\n",  inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+			send_packet(socket, backup_servers[i], msg, DEFAULT_TIMEOUT);
+			//printf("Sending NEW_LEADER to %s:%d\n",  inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 		}
 	}
 
@@ -599,14 +598,14 @@ int declare_main_server(int socket) {
 	backup_transition = 1;
 	//Para retirar o server de backup do while
 	msg.header.type = 0xF1;
-	send_packet(socket, backup_servers[backup_index], msg, 500);
+	send_packet(socket, backup_servers[backup_index], msg, DEFAULT_TIMEOUT);
 	return 0;
 }
 
 int send_election_msg(int socket, REMOTE_ADDR server) {
 	PACKET msg;
 	msg.header.type = ELECTION;
-	return send_packet(socket, server, msg, 500);
+	return send_packet(socket, server, msg, DEFAULT_TIMEOUT);
 }
 
 void start_election() {
@@ -615,7 +614,7 @@ void start_election() {
 
 	for (i=backup_index + 1; i < n_backup_servers; i++) {
 		if(i != backup_index) {
-			printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+			//printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 			if(send_election_msg(election_socket, backup_servers[i]) == 0)
 				return;
 		}
@@ -635,7 +634,7 @@ void *is_server_alive(){
 	while(1) {
 		sleep(1);
 		if (electing == 0) {
-			if(send_packet(alive_socket, main_server, msg, 500) < 0) {
+			if(send_packet(alive_socket, main_server, msg, DEFAULT_TIMEOUT) < 0) {
 				if (electing == 0) {
 					electing = 1;
 					printf("🚨  Main server is down! Starting election\n");
@@ -711,7 +710,7 @@ int run_backup_mode() {
 				if(new_backup(&backup_info) < 0)
 					printf("ERROR creating backup socket and thread\n");
 
-				printf("New client connected: %s\n", backup_info.username);
+				//printf("New client connected: %s\n", backup_info.username);
 				break;
 
 			case BACKUP:
@@ -719,7 +718,6 @@ int run_backup_mode() {
 				backup_index = (int) *(msg.data + sizeof(int));
 				backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
-				printf("Index: %d, N: %d\n", backup_index, n_backup_servers);
 				printf("Backups list updated:");
 				list_backup_servers();
 				electing = 0;
@@ -735,8 +733,8 @@ int run_backup_mode() {
 			case NEW_DEVICE:
 				n_devices++;
 				connected_devices = realloc(connected_devices, sizeof(REMOTE_ADDR) * n_devices);
-				connected_devices[n_devices-1] = *((REMOTE_ADDR*)msg.data);
-				printf("New device [%s:%d] has logged\n", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
+				connected_devices[n_devices-1] = *((REMOTE_ADDR*) msg.data);
+				//printf("New device [%s:%d] has logged\n", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
 				break;
 
 			case NEW_LEADER:
@@ -782,7 +780,7 @@ int run_server_mode() {
 
 		for(i = 0; i < n_devices; i++){
 			//TO-DO:mudar_timeout.
-			send_packet(new_server_socket, connected_devices[i], new_server_msg, 500);
+			send_packet(new_server_socket, connected_devices[i], new_server_msg, 1000);
 		}
 
 		close(new_server_socket);
@@ -892,7 +890,7 @@ int run_server_mode() {
 				break;
 
 			default:
-				printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
+				printf("📡 [%s:%d] WARNING: Non-HELLO message ignored. Type: %x\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, msg.header.type);
 		};		
 	}
 }

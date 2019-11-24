@@ -12,7 +12,7 @@
 int listen_socket, port = PORT, inform_device = 3034;
 int front_end_port = FRONT_END_PORT;
 int backup_mode = 0, backup_transition = 0;
-int backup_index = 9999, backup_socket, n_backup_servers = 0, electing = 0, n_devices = 0;
+int backup_index = -1, backup_socket, n_backup_servers = 0, electing = 0, n_devices = 0;
 sem_t file_is_created;
 char hostname[MAX_NAME_LENGTH];
 REMOTE_ADDR main_server; // Servidor principal
@@ -682,7 +682,7 @@ int run_backup_mode() {
 				if(new_backup(&backup_info) < 0)
 					printf("ERROR creating backup socket and thread\n");
 
-				printf("New client connected - %s", backup_info.username);
+				printf("New client connected: %s\n", backup_info.username);
 				break;
 
 			case BACKUP:
@@ -690,7 +690,7 @@ int run_backup_mode() {
 				backup_index = (int) *(msg.data + sizeof(int));
 				backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
-				printf("New backup server connected.");
+				printf("New backup server connected\n");
 				break;
 
 			case ELECTION:
@@ -705,7 +705,7 @@ int run_backup_mode() {
 				n_devices++;
 				connected_devices = realloc(connected_devices, sizeof(REMOTE_ADDR) * n_devices);
 				connected_devices[n_devices-1] = *((REMOTE_ADDR*)&msg.data);
-				printf("New device [%s:%d] has logged. ", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
+				printf("New device [%s:%d] has logged\n", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
 				break;
 
 			case NEW_LEADER:
@@ -793,10 +793,10 @@ int run_server_mode() {
 				//Caso tenha achado um usuário, incrementa o número de usuários logados
 				if ((user_retrieved = hsearch(user_to_search, FIND)) != NULL){
 					(((CLIENT_MUTEX_AND_BACKUP *)(user_retrieved->data))->client_mutex.clients_connected)++;
-					printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*) user_retrieved->data)->clients_connected));
+					//printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*) user_retrieved->data)->clients_connected));
 				//Caso não haja nenhum usuário
 				} else {
-					printf("Usuário não encontrado na hash table, criando nova entrada\n");
+					//printf("Usuário não encontrado na hash table, criando nova entrada\n");
 					//Inicializa a nova estrutura de mutex	
 					new_mutex.clients_connected = 1;
 					pthread_mutex_init(&(new_mutex.sync_or_command), NULL);

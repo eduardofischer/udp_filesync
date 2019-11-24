@@ -37,9 +37,9 @@ void *thread_client_cmd(void *thread_info){
 	ENTRY to_search;
 	ENTRY *found;
 	to_search.key = info.client.username;
-	found = hsearch(to_search,FIND);
+	found = hsearch(to_search, FIND);
 	if(found == NULL)
-		printf("Error hsearch FIND: %s", strerror(errno));
+		printf("Error hsearch FIND: %s\n", strerror(errno));
 
 	// Path da pasta do usuário no servidor
 	strcpy(user_dir, SERVER_DIR);	
@@ -149,7 +149,7 @@ void *thread_client_sync(void *thread_info){
 	ENTRY to_search;
 	ENTRY *found;
 	to_search.key = info.client.username;
-	found = hsearch(to_search,FIND);
+	found = hsearch(to_search, FIND);
 	if(found == NULL)
 		printf("Error hsearch FIND: %s", strerror(errno));
 
@@ -475,7 +475,7 @@ void add_user_to_hashtable(CLIENT_INFO client_info) {
 	//Caso tenha achado um usuário, incrementa o número de usuários logados
 	if ((user_retrieved = hsearch(user_to_search, FIND)) != NULL){
 		(((CLIENT_MUTEX_AND_BACKUP *)(user_retrieved->data))->client_mutex.clients_connected)++;
-		printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*)user_retrieved->data)->clients_connected));
+		printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*) user_retrieved->data)->clients_connected));
 	//Caso não haja nenhum usuário
 	} else {
 		printf("Usuário não encontrado na hash table, criando nova entrada\n");
@@ -487,17 +487,17 @@ void add_user_to_hashtable(CLIENT_INFO client_info) {
 		// Aloca novas variáveis para os novos clientes
 		user_to_add->data = malloc(sizeof(CLIENT_MUTEX_AND_BACKUP));
 		//Aloca a área da lista
-		((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
+		((CLIENT_MUTEX_AND_BACKUP*) (user_to_add->data))->backup_addresses = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 
 		//Preenche o client_mutex
-		memcpy(&(((CLIENT_MUTEX_AND_BACKUP*)user_to_add->data)->client_mutex), &new_mutex, sizeof(new_mutex));
+		memcpy(&(((CLIENT_MUTEX_AND_BACKUP*) user_to_add->data)->client_mutex), &new_mutex, sizeof(new_mutex));
 
 		//Hello para servidores de backup e inicializar uma thread para cada usuario
 		for (i = 0; i < n_backup_servers; i++){
 			REMOTE_ADDR new_backup_server_cmd;
 			new_backup_server_cmd.ip = backup_servers[i].ip;
 			REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
-			request_hello(client_info.username,listen_socket,backup_servers[i],&new_backup_server_cmd,&new_backup_server_sync);
+			request_hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync);
 			//backup_adresses[i] = new_backup_server_cmd recebido
 			*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
 		}
@@ -767,7 +767,52 @@ int run_server_mode() {
 				for(i = 0; i < n_backup_servers; i++)
 					send_new_device(inform_device_socket, backup_servers[i], &device_addr);
 
-				add_user_to_hashtable(client_info);
+				// HASH TABLE
+				//add_user_to_hashtable(client_info);
+				ENTRY user_to_search;
+				ENTRY *user_retrieved;
+				ENTRY *user_to_add;
+				CLIENT_MUTEX new_mutex;
+				int i;
+
+				user_to_search.key = client_info.username;
+
+				//Caso tenha achado um usuário, incrementa o número de usuários logados
+				if ((user_retrieved = hsearch(user_to_search, FIND)) != NULL){
+					(((CLIENT_MUTEX_AND_BACKUP *)(user_retrieved->data))->client_mutex.clients_connected)++;
+					printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*) user_retrieved->data)->clients_connected));
+				//Caso não haja nenhum usuário
+				} else {
+					printf("Usuário não encontrado na hash table, criando nova entrada\n");
+					//Inicializa a nova estrutura de mutex	
+					new_mutex.clients_connected = 1;
+					pthread_mutex_init(&(new_mutex.sync_or_command), NULL);
+
+					user_to_add = malloc(sizeof(ENTRY));
+					// Aloca novas variáveis para os novos clientes
+					user_to_add->data = malloc(sizeof(CLIENT_MUTEX_AND_BACKUP));
+					//Aloca a área da lista
+					((CLIENT_MUTEX_AND_BACKUP*) (user_to_add->data))->backup_addresses = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
+
+					//Preenche o client_mutex
+					memcpy(&(((CLIENT_MUTEX_AND_BACKUP*) user_to_add->data)->client_mutex), &new_mutex, sizeof(new_mutex));
+
+					//Hello para servidores de backup e inicializar uma thread para cada usuario
+					for (i = 0; i < n_backup_servers; i++){
+						REMOTE_ADDR new_backup_server_cmd;
+						new_backup_server_cmd.ip = backup_servers[i].ip;
+						REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
+						request_hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync);
+						//backup_adresses[i] = new_backup_server_cmd recebido
+						*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
+					}
+
+					user_to_add->key = client_info.username;
+					//Adiciona no hash
+					hsearch(*user_to_add, ENTER);
+
+					free(user_to_add);
+				}
 
 				if(new_client(&client_info) < 0) {
 					printf("ERROR creating client sockets\n");
@@ -799,7 +844,7 @@ int run_server_mode() {
 
 			default:
 				printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
-		}			
+		};		
 	}
 }
 
@@ -813,26 +858,28 @@ int main(int argc, char *argv[]){
 	//o IP do main_server é passado como argumento
 	while ((opt = getopt(argc, argv, "p:b:")) != -1) {
 		switch (opt) {
-		case 'p':
-			port = atoi(optarg);
-			break;
-		case 'b':
-			if ((main_host = gethostbyname((char *)optarg)) == NULL){
-				fprintf(stderr, "ERROR! No such host\n");
+			case 'p':
+				port = atoi(optarg);
 				break;
-			}
-			main_server.ip = *(unsigned long *) main_host->h_addr;
-			main_server.port = PORT;
-			backup_mode = 1;
-			break;
-		default: /* '?' */
-			fprintf(stderr, "Usage: %s [-p port] [-b main_server_ip]\n", argv[0]);
-			exit(EXIT_FAILURE);
+
+			case 'b':
+				if ((main_host = gethostbyname((char *)optarg)) == NULL) {
+					fprintf(stderr, "ERROR! No such host\n");
+					break;
+				}
+				main_server.ip = *(unsigned long *) main_host->h_addr;
+				main_server.port = PORT;
+				backup_mode = 1;
+				break;
+
+			default: /* '?' */
+				fprintf(stderr, "Usage: %s [-p port] [-b main_server_ip]\n", argv[0]);
+				exit(EXIT_FAILURE);
 		}
 	}
 
 	// Cria a hash table que receberá dados sobre os clientes ativos
-	if(hcreate(NUM_OF_MAX_CONNECTIONS) < 0)
+	if (hcreate(NUM_OF_MAX_CONNECTIONS) < 0)
 		printf("Error creating hash table: %s\n", strerror(errno));
 
 	gethostname(hostname, sizeof(hostname));

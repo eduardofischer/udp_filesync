@@ -80,10 +80,8 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int msec_timeout){
             //printf("Resending packet.\n");
 
             n_timeouts++;
-        }
-        else{
+        } else
             successfully_sent = 0;
-        }
     } while(successfully_sent < 0 && n_timeouts < MAX_TIMEOUTS);
 
     // Retorna o timeout para infinito
@@ -93,22 +91,26 @@ int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int msec_timeout){
     return successfully_sent;
 }
 
-int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout){
+int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int msec_timeout){
     struct sockaddr_in new_addr;
     socklen_t addr_len = sizeof(new_addr);
     int n;
 
     struct timeval tv;
     tv.tv_sec = 0;
-    tv.tv_usec = (__suseconds_t) usec_timeout;
+    tv.tv_usec = msec_timeout * 1000;
 
-    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv));
+    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     n = recvfrom(socket, packet, sizeof(PACKET), 0, (struct sockaddr *)&new_addr, &addr_len);
 
+    // Retorna o timeout para infinito
+    tv.tv_usec = 0;
+    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
     if (n < 0){
-        //printf("Timeout recv_packet recvfrom %s\n", strerror(errno));
-        return -1;
+        // printf("Timeout recv_packet recvfrom. Return: %d, Errno: %s\n", n, strerror(errno));
+        return n;
     }
 
     ack(socket, (struct sockaddr *)&new_addr, addr_len);
@@ -117,7 +119,7 @@ int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout)
         addr->ip = new_addr.sin_addr.s_addr;
         addr->port = ntohs(new_addr.sin_port);
     }
-    
+
     return n;
 }
 

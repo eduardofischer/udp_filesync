@@ -512,19 +512,26 @@ int declare_main_server() {
 	return 0;
 }
 
-int send_election_msg(REMOTE_ADDR server) {
+int send_election_msg(int socket, REMOTE_ADDR server) {
 	PACKET msg;
 	msg.header.type = ELECTION;
-	return send_packet(backup_socket, server, msg, 500);
+	return send_packet(socket, server, msg, 1000);
 }
 
 void start_election() {
 	int i;
+	int election_socket = create_udp_socket();
+
+	electing = 1;
+
+	//list_backup_servers();
 
 	for (i=0; i < n_backup_servers; i++) {
-		if(send_election_msg(backup_servers[i]) == 0)
+		if(send_election_msg(election_socket, backup_servers[i]) == 0)
 			return;
 	}
+
+	close(election_socket);
 
 	declare_main_server();
 }
@@ -539,9 +546,10 @@ void *is_server_alive(){
 		sleep(1);
 		if (electing == 0){
 			if(send_packet(alive_socket, main_server, msg, 500) < 0) {
-				electing = 1;
-				printf("🚨  Main server is down! Starting election\n");
-				start_election();
+				if (electing == 0) {
+					start_election();
+					printf("🚨  Main server is down! Starting election\n");
+				}
 			}
 		}
 	}
@@ -598,7 +606,7 @@ int run_backup_mode() {
 
 	while(1){
 		if (recv_packet(backup_socket, &rem_addr, &msg, 0) < 0)
-			printf("ERROR recv_packet backup_socket\n");
+			printf("ERROR recv_packet backup_socket: %s\n", strerror(errno));
 	
 		if(msg.header.type == HELLO){
 			//Preenche backup-info: Username e remote_addr do server principal
@@ -616,7 +624,7 @@ int run_backup_mode() {
 			if(electing == 0)
 				start_election();
 		} else
-			printf("📡 [%s:%d] WARNING: Message ignored by backup_socket: %s\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, (char *)msg.data);
+			printf("📡 [%s:%d] WARNING: Message ignored by backup_socket: %x\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, msg.header.type);
 	}
 
 	return 0;

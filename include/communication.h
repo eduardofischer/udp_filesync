@@ -127,7 +127,7 @@ uint16_t get_socket_port(int socket);
  **/ 
 int send_packet(int socket, REMOTE_ADDR addr, PACKET packet, int msec_timeout);
 
-int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int usec_timeout);
+int recv_packet(int socket, REMOTE_ADDR *addr, PACKET *packet, int msec_timeout);
 
 /** Envia um pacote de ACK */
 int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);

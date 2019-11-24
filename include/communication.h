@@ -45,6 +45,7 @@
 #define ALIVE       0x05
 #define ELECTION    0x06
 #define NEW_DEVICE  0x07
+#define NEW_LEADER  0x08
 
 /** Codigos dos comandos **/
 #define UPLOAD   0x04

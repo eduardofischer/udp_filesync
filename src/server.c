@@ -459,6 +459,53 @@ int send_backup_hello() {
     return 0;
 }
 
+void add_user_to_hashtable(CLIENT_INFO client_info) {
+	ENTRY user_to_search;
+	ENTRY *user_retrieved;
+	ENTRY *user_to_add;
+	CLIENT_MUTEX new_mutex;
+	int i;
+
+	user_to_search.key = client_info.username;
+
+	//Caso tenha achado um usuário, incrementa o número de usuários logados
+	if ((user_retrieved = hsearch(user_to_search, FIND)) != NULL){
+		(((CLIENT_MUTEX_AND_BACKUP *)(user_retrieved->data))->client_mutex.clients_connected)++;
+		printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*)user_retrieved->data)->clients_connected));
+	//Caso não haja nenhum usuário
+	} else {
+		printf("Usuário não encontrado na hash table, criando nova entrada\n");
+		//Inicializa a nova estrutura de mutex	
+		new_mutex.clients_connected = 1;
+		pthread_mutex_init(&(new_mutex.sync_or_command), NULL);
+
+		user_to_add = malloc(sizeof(ENTRY));
+		// Aloca novas variáveis para os novos clientes
+		user_to_add->data = malloc(sizeof(CLIENT_MUTEX_AND_BACKUP));
+		//Aloca a área da lista
+		((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
+
+		//Preenche o client_mutex
+		memcpy(&(((CLIENT_MUTEX_AND_BACKUP*)user_to_add->data)->client_mutex), &new_mutex, sizeof(new_mutex));
+
+		//Hello para servidores de backup e inicializar uma thread para cada usuario
+		for (i = 0; i < n_backup_servers; i++){
+			REMOTE_ADDR new_backup_server_cmd;
+			new_backup_server_cmd.ip = backup_servers[i].ip;
+			REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
+			request_hello(client_info.username,listen_socket,backup_servers[i],&new_backup_server_cmd,&new_backup_server_sync);
+			//backup_adresses[i] = new_backup_server_cmd recebido
+			*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
+		}
+
+		user_to_add->key = client_info.username;
+		//Adiciona no hash
+		hsearch(*user_to_add, ENTER);
+
+		free(user_to_add);
+	}
+}
+
 void sort_addr_list(REMOTE_ADDR *servers_list, int size) {
 	for (int i=0; i < size; i++) {
 		for (int j=0; j < size - 1; j++) {
@@ -506,10 +553,18 @@ int update_backup_lists() {
 	return 0;
 }
 
-int declare_main_server() {
-	// AVISAR CLIENTES DO NOVO MAIN SERVER AQUI
-	// FAZER A TRANSIÇÃO BACKUP -> MAIN_SERVER AQUI
-	printf("⭐  I AM THE NEW MAIN SERVER!\n");
+int declare_main_server(int socket) {
+	int i;
+	PACKET msg;
+
+	msg.header.type = NEW_LEADER;
+	printf("⭐  I am the new main server!\n");
+
+	// Informa os demais backup_servers
+	for (i=0; i<n_backup_servers; i++){
+		if (i != backup_index)
+			send_packet(socket, backup_servers[i], msg, 500);
+	}
 
 	return 0;
 }
@@ -529,9 +584,9 @@ void start_election() {
 			return;
 	}
 
-	close(election_socket);
+	declare_main_server(election_socket);
 
-	declare_main_server();
+	close(election_socket);
 }
 
 void *is_server_alive(){
@@ -607,30 +662,45 @@ int run_backup_mode() {
 		if (recv_packet(backup_socket, &rem_addr, &msg, 0) < 0)
 			printf("ERROR recv_packet backup_socket: %s\n", strerror(errno));
 	
-		if(msg.header.type == HELLO){
-			//Preenche backup-info: Username e remote_addr do server principal
-			backup_info.client_addr = rem_addr;
-			strcpy(backup_info.username, (char *) msg.data);
+		switch (msg.header.type) {
+			case HELLO:
+				//Preenche backup-info: Username e remote_addr do server principal
+				backup_info.client_addr = rem_addr;
+				strcpy(backup_info.username, (char *) msg.data);
 
-			if(new_backup(&backup_info) < 0)
-				printf("ERROR creating backup socket and thread\n");
+				if(new_backup(&backup_info) < 0)
+					printf("ERROR creating backup socket and thread\n");
+				break;
 
-		} else if(msg.header.type == BACKUP) {
-			n_backup_servers = (int) *(msg.data);
-			backup_index = (int) *(msg.data + sizeof(int));
-			backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
-			memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
-		} else if(msg.header.type == ELECTION) {
-			if(electing == 0){
-				electing = 1;
-				start_election();
-			}
-		} else if(msg.header.type == NEW_DEVICE){
-			n_devices++;
-			devices_connected = realloc(devices_connected,sizeof(REMOTE_ADDR) * n_devices);
-			devices_connected[n_devices-1] = *((REMOTE_ADDR*)&msg.data);
-		}else
-			printf("📡 [%s:%d] WARNING: Message ignored by backup_socket: %x\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, msg.header.type);
+			case BACKUP:
+				n_backup_servers = (int) *(msg.data);
+				backup_index = (int) *(msg.data + sizeof(int));
+				backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
+				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
+				break;
+
+			case ELECTION:
+				if (electing == 0) {
+					electing = 1;
+					start_election();
+				}
+				break;
+
+			case NEW_DEVICE:
+				n_devices++;
+				devices_connected = realloc(devices_connected,sizeof(REMOTE_ADDR) * n_devices);
+				devices_connected[n_devices-1] = *((REMOTE_ADDR*)&msg.data);
+				break;
+
+			case NEW_LEADER:
+				main_server.ip = rem_addr.ip;
+				main_server.port = PORT;
+				printf("⭐  %s:%d is the new main server!\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), PORT);
+				break;
+			
+			default:
+				printf("📡 [%s:%d] WARNING: Message ignored by backup_socket: %x\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, msg.header.type);
+		}		
 	}
 
 	return 0;
@@ -639,11 +709,8 @@ int run_backup_mode() {
 int run_server_mode() {
 	PACKET msg;
 	REMOTE_ADDR rem_addr;
+	REMOTE_ADDR device_addr;
 	CLIENT_INFO client_info;
-	CLIENT_MUTEX new_mutex;
-	ENTRY user_to_search;
-	ENTRY *user_retrieved;
-	ENTRY *user_to_add;
 	int i;
 
 	// Cria o socket UDP para conexão de novos clientes
@@ -661,81 +728,52 @@ int run_server_mode() {
 
 		sem_init(&file_is_created, 0, 0);
 
-		if(msg.header.type == HELLO) {
-			// Seta informações de client_info.
-			client_info.client_addr = rem_addr;
-			strcpy(client_info.username, (char *) msg.data);
+		switch (msg.header.type) {
+			case HELLO:
+				device_addr.ip = rem_addr.ip;
+				device_addr.port = FRONT_END_PORT;
 
-			user_to_search.key = client_info.username;
-			REMOTE_ADDR device_addr;
-			device_addr.ip = client_info.client_addr.ip;
-			device_addr.port = FRONT_END_PORT;
-			//Independente do usuário, é necessário notificar um novo device para os servidores de backup
-			for(i = 0; i < n_backup_servers; i++){
-				send_new_device(listen_socket, backup_servers[i], &device_addr);
-			}
+				// Seta informações de client_info.
+				client_info.client_addr = rem_addr;
+				strcpy(client_info.username, (char *) msg.data);
 
-			// HASH TABLE
-			//Caso tenha achado um usuário, incrementa o número de usuários logados
-			if ((user_retrieved = hsearch(user_to_search, FIND)) != NULL){
-				(((CLIENT_MUTEX_AND_BACKUP *)(user_retrieved->data))->client_mutex.clients_connected)++;
-				printf("Clientes %s conectados: %d\n", client_info.username, (((CLIENT_MUTEX*)user_retrieved->data)->clients_connected));
-			//Caso não haja nenhum usuário
-			} else {
-				printf("Usuário não encontrado na hash table, criando nova entrada\n");
-				//Inicializa a nova estrutura de mutex	
-				new_mutex.clients_connected = 1;
-				pthread_mutex_init(&(new_mutex.sync_or_command), NULL);
+				//Independente do usuário, é necessário notificar um novo device para os servidores de backup
+				for(i = 0; i < n_backup_servers; i++)
+					send_new_device(listen_socket, backup_servers[i], &device_addr);
 
-				user_to_add = malloc(sizeof(ENTRY));
-				// Aloca novas variáveis para os novos clientes
-				user_to_add->data = malloc(sizeof(CLIENT_MUTEX_AND_BACKUP));
-				//Aloca a área da lista
-				((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
+				add_user_to_hashtable(client_info);
 
-				//Preenche o client_mutex
-				memcpy(&(((CLIENT_MUTEX_AND_BACKUP*)user_to_add->data)->client_mutex), &new_mutex, sizeof(new_mutex));
-
-				//Hello para servidores de backup e inicializar uma thread para cada usuario
-				for (i = 0; i < n_backup_servers; i++){
-					REMOTE_ADDR new_backup_server_cmd;
-					new_backup_server_cmd.ip = backup_servers[i].ip;
-					REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
-					request_hello(client_info.username,listen_socket,backup_servers[i],&new_backup_server_cmd,&new_backup_server_sync);
-					//backup_adresses[i] = new_backup_server_cmd recebido
-					*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
+				if(new_client(&client_info) < 0) {
+					printf("ERROR creating client sockets\n");
+					exit(0);
 				}
 
-				user_to_add->key = client_info.username;
-				//Adiciona no hash
-				hsearch(*user_to_add, ENTER);
+				if(create_user_dir((char *) &(msg.data)) < 0) {
+					printf("ERROR creating user dir\n");
+					exit(0);
+				}
+				
+				sem_post(&file_is_created);
+				
+				printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port,(char *) &(msg.data));
+				break;
 
-				free(user_to_add);
-			}
+			case BACKUP:
+				n_backup_servers++;
+				backup_servers = realloc(backup_servers, sizeof(REMOTE_ADDR)*n_backup_servers);
+				backup_servers[n_backup_servers - 1] = rem_addr;
+				printf("💾  NEW BACKUP SERVER: %s:%d \n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
 
-			if(new_client(&client_info) < 0){
-				printf("ERROR creating client sockets\n");
-				exit(0);
-			}
-
-			if(create_user_dir((char *) &(msg.data)) < 0) 
-				exit(0);
+				update_backup_lists();
+				break;
 			
-			sem_post(&file_is_created);
-			
-			printf("📡 [%s:%d] HELLO: connected as %s\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port,(char *) &(msg.data));
-		} else if(msg.header.type == BACKUP) {
-			n_backup_servers++;
-			backup_servers = realloc(backup_servers, sizeof(REMOTE_ADDR)*n_backup_servers);
-			backup_servers[n_backup_servers - 1] = rem_addr;
-			printf("💾  NEW BACKUP SERVER: %s:%d \n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
+			case ALIVE:
+				// Ack enviado pela recv_packet
+				break;
 
-			update_backup_lists();
-		} else if(msg.header.type == ALIVE) {
-			// Ack enviado pela recv_packet
-		} else {
-			printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
-		}				
+			default:
+				printf("📡 [%s:%d] WARNING: Non-HELLO message ignored.\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port);
+		}			
 	}
 }
 

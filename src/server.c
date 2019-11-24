@@ -704,7 +704,7 @@ int run_backup_mode() {
 			case NEW_DEVICE:
 				n_devices++;
 				connected_devices = realloc(connected_devices, sizeof(REMOTE_ADDR) * n_devices);
-				connected_devices[n_devices-1] = *((REMOTE_ADDR*)&msg.data);
+				connected_devices[n_devices-1] = *((REMOTE_ADDR*)msg.data);
 				printf("New device [%s:%d] has logged. ", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
 				break;
 

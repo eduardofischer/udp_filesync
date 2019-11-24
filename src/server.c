@@ -726,7 +726,7 @@ int run_server_mode() {
 
 	// Cria o socket UDP para conexão de novos clientes
     listen_socket = create_udp_socket();
-    listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, port);
+    listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, PORT);
 
 	inform_device_socket = create_udp_socket();
 	inform_device_socket = bind_udp_socket(inform_device_socket,INADDR_ANY,inform_device);

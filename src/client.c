@@ -422,7 +422,7 @@ void *front_end(){
         //Recebe uma mensagem qualquer do servidor indicando que há um novo server principal.
         recv_packet(front_end_socket,&new_server_addr,&msg,0);
 
-        new_server_addr.port = *((int *)msg.data);
+        new_server_addr.port = PORT;
         request_hello(username,front_end_socket,new_server_addr,&server_cmd,&server_sync);
     }
 

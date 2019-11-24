@@ -367,10 +367,8 @@ void *front_end(){
         //Recebe uma mensagem qualquer do servidor indicando que há um novo server principal.
         recv_packet(front_end_socket, &new_server_addr, &msg, 0);
 
-        sleep(200);
-
         new_server_addr.port = PORT;
-        printf("Sending hello\n");
+        printf("Sending hello to %s:%d\n", inet_ntoa(*(struct in_addr *) &new_server_addr.ip), new_server_addr.port);
         hello(username, front_end_socket, new_server_addr, &server_cmd, &server_sync);
         printf("Sent hello\n");
     }
@@ -425,8 +423,10 @@ int main(int argc, char const *argv[]){
     pthread_create(&sync_thread, NULL, sync_files, NULL);
     pthread_create(&front_end_thread, NULL, front_end, NULL);
 
+    pthread_join(front_end_thread, NULL);
+
     rl_attempted_completion_function = cmd_completion;
-    run_cli(sock_cmd);
+    //run_cli(sock_cmd);
     
     return 0;
 }

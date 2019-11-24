@@ -565,14 +565,17 @@ int declare_main_server(int socket) {
 	printf("⭐  I am the new main server!\n");
 
 	// Informa os demais backup_servers
-	for (i=0; i<n_backup_servers; i++){
-		if (i != backup_index)
+	for (i=0; i < n_backup_servers; i++){
+		if (i != backup_index) {
 			send_packet(socket, backup_servers[i], msg, 500);
+			printf("Sending NEW_LEADER to %s:%d\n",  inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+		}
 	}
 
 	backup_mode = 0;
 	backup_transition = 1;
 	//Para retirar o server de backup do while
+	msg.header.type = 0xF1;
 	send_packet(socket, backup_servers[backup_index], msg, 1);
 	return 0;
 }
@@ -739,12 +742,12 @@ int run_server_mode() {
 
 		int new_server_socket = create_udp_socket();
 		new_server_socket = bind_udp_socket(new_server_socket, INADDR_ANY, 0);
-		
+
 		memcpy(new_server_msg.data, &port, sizeof(int));
 
 		for(i = 0; i < n_devices; i++){
 			//TO-DO:mudar_timeout.
-			send_packet(new_server_socket, connected_devices[i], new_server_msg, 0);
+			send_packet(new_server_socket, connected_devices[i], new_server_msg, 500);
 		}
 
 		close(new_server_socket);

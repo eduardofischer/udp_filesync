@@ -384,7 +384,7 @@ int hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_
         return -1;;
     }
 
-    if(recv_packet(socket, NULL, &response, 500) < 0){
+    if(recv_packet(socket, NULL, &response, 0) < 0){
         printf("ERROR hello: timeout\n");
         return -1;
     }

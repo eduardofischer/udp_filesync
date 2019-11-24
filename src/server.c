@@ -812,12 +812,14 @@ int run_server_mode() {
 
 					//Hello para servidores de backup e inicializar uma thread para cada usuario
 					for (i = 0; i < n_backup_servers; i++){
-						REMOTE_ADDR new_backup_server_cmd;
-						new_backup_server_cmd.ip = backup_servers[i].ip;
-						REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
-						hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync);
-						//backup_adresses[i] = new_backup_server_cmd recebido
-						*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
+						if(i != backup_index){
+							REMOTE_ADDR new_backup_server_cmd;
+							new_backup_server_cmd.ip = backup_servers[i].ip;
+							REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
+							hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync);
+							//backup_adresses[i] = new_backup_server_cmd recebido
+							*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
+						}
 					}
 
 					user_to_add->key = client_info.username;

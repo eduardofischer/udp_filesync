@@ -256,7 +256,7 @@ void run_cli(int socket){
 int request_sync(){
     DIR_ENTRY *entries = malloc(sizeof(DIR_ENTRY));
     DIR_ENTRY *server_entries = malloc(sizeof(DIR_ENTRY));
-    int n_entries, n_packets, n, last_recv_packet, server_length = 0;
+    int n_entries, n_packets, last_recv_packet, server_length = 0;
     int n_server_ent;
     PACKET recv_entries_pkt;
     SYNC_LIST list;
@@ -264,12 +264,13 @@ int request_sync(){
 
     n_entries = get_dir_status(LOCAL_DIR, &entries);
 
-    send_command(sock_sync, server_sync, SYNC_DIR, NULL, DEFAULT_TIMEOUT);
+    if(send_command(sock_sync, server_sync, SYNC_DIR, NULL, DEFAULT_TIMEOUT) < 0)
+        return -1;
 
     do {
-        n = recv_packet(sock_sync, NULL, &recv_entries_pkt, 0);
-		if (n < 0){
-			fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
+		if (recv_packet(sock_sync, NULL, &recv_entries_pkt, DEFAULT_TIMEOUT) < 0){
+			//fprintf(stderr, "ERROR receiving server_entries: %s\n", strerror(errno));
+            return -1;
 		} else {	//Message correctly received
             if(recv_entries_pkt.header.total_size > 0){
                 server_entries = realloc(server_entries, server_length + recv_entries_pkt.header.length + 1);

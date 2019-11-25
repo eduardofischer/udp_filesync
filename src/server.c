@@ -332,7 +332,7 @@ int new_client(CLIENT_INFO *client){
 	thread_info.tid_sync = thr_sync;
 	pthread_create(&thr_cmd, NULL, thread_client_cmd, &thread_info);
 
-	if(reply_hello(conn_info, sock_cmd) < 0){
+	if(reply_hello(conn_info, listen_socket) < 0){
 		printf("ERROR responding HELLO message\n");
 		return -1;
 	}

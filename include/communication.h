@@ -48,6 +48,7 @@
 #define NEW_DEVICE  0x07
 #define NEW_LEADER  0x08
 #define CLOSE       0x09
+#define FRONT_END   0x10
 
 /** Codigos dos comandos **/
 #define UPLOAD   0x04

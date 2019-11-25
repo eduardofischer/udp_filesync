@@ -17,6 +17,7 @@ char hostname[MAX_NAME_LENGTH];
 REMOTE_ADDR main_server; // Servidor principal
 REMOTE_ADDR *backup_servers; // Lista de servidores de backup~
 REMOTE_ADDR *connected_devices; //Lista de devices (USADO SOMENTE EM SERVIDORES DE BACKUP)
+sem_t sem_election;
 
 /** 
  *  Escuta um cliente em um determinado socket 
@@ -519,21 +520,25 @@ int declare_main_server(int socket) {
 	if(send_packet(socket, backup_servers[backup_index], msg, 0) < 0)
 		printf("ERROR sending CLOSE packet to backup_mode...\n");
 
-	msg.header.type = NEW_LEADER;
 
+	msg.header.type = NEW_LEADER;
 	// Informa os demais backup_servers
 	for (i=0; i < n_backup_servers; i++){
 		if (i != backup_index) {
+			printf("Sending NEW_LEADER to %s:%d\n",  inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 			if(send_packet(socket, backup_servers[i], msg, DEFAULT_TIMEOUT) < 0)
 				printf("Msg NEW_LEADER perdida...\n");
-			//printf("Sending NEW_LEADER to %s:%d\n",  inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 		}
 	}
 
+	sem_wait(&sem_election);
+
+	msg.header.type = FRONT_END;
 	memcpy(msg.data, &port, sizeof(int));
 	// Avisa os dispositivos (clientes) sobre o novo server principal, requisitando
 	//que façam login novamente
 	for(i=0; i < n_devices; i++){
+		printf("Enviando request de hello para device %s:%d\n", inet_ntoa(*(struct in_addr *) &connected_devices[i].ip), connected_devices[i].port);
 		if(send_packet(socket, connected_devices[i], msg, 1000) < 0)
 			printf("Msg request hello to device perdida...\n");
 	}
@@ -721,6 +726,8 @@ int run_server_mode() {
         exit(0);
 
 	while (1) {
+		sem_post(&sem_election);
+
 		if (recv_packet(listen_socket, &rem_addr, &msg, 0) < 0)
 			printf("ERROR recv_packet listen_socket\n");
 
@@ -777,7 +784,9 @@ int run_server_mode() {
 							REMOTE_ADDR new_backup_server_cmd;
 							new_backup_server_cmd.ip = backup_servers[i].ip;
 							REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
-							hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync);
+							printf("Enviando HELLO para %s:%d \n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+							if(hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync) < 0)
+								printf("Msg de HELLO para %s:%d falhou...\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 							//backup_adresses[i] = new_backup_server_cmd recebido
 							*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
 						}
@@ -859,6 +868,9 @@ int main(int argc, char *argv[]){
 		printf("Error creating hash table: %s\n", strerror(errno));
 
 	gethostname(hostname, sizeof(hostname));
+
+	// Inicialização do semáforo que indica quando um servidor de backup que assume como main_server está pronto para operar
+	sem_init(&sem_election, 0, 0);
 
 	while (1){
 		if(backup_mode){

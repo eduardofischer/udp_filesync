@@ -16,6 +16,17 @@ char username[64];
 REMOTE_ADDR server_cmd;
 REMOTE_ADDR server_sync;
 
+// Next three definitions are necessary for command completion.
+char *cmds[] = {
+    "upload",
+    "download",
+    "delete",
+    "list_server",
+    "list_client",
+    "exit",
+    NULL
+};
+
 /** Envia o arquivo para o servidor **/
 int uploadFile(char* filePath, REMOTE_ADDR remote){
     FILE *file_to_upload;
@@ -151,17 +162,6 @@ void print_cli_options(){
     printf("\t📃  list_client\n");
     printf("\t🏃  exit\n");
 }
-
-// Next three definitions are necessary for command completion.
-char *cmds[] = {
-    "upload",
-    "download",
-    "delete",
-    "list_server",
-    "list_client",
-    "exit",
-    NULL
-};
 
 char *cmd_generator(const char *text, int state){
     static int list_index, len;
@@ -360,12 +360,16 @@ void *front_end(){
     while (1){
         REMOTE_ADDR new_server_addr;
         //Recebe uma mensagem qualquer do servidor indicando que há um novo server principal.
-        recv_packet(front_end_socket, &new_server_addr, &msg, 0);
+        if (recv_packet(front_end_socket, &new_server_addr, &msg, 0) < 0)
+            printf("ERROR recv_packet front_end\n");
 
-        new_server_addr.port = PORT;
-        server_cmd = new_server_addr;
-        server_sync = new_server_addr;
-        hello(username, front_end_socket, new_server_addr, &server_cmd, &server_sync);
+        if (msg.header.type == FRONT_END) {
+            new_server_addr.port = PORT;
+            server_cmd = new_server_addr;
+            server_sync = new_server_addr;
+            hello(username, front_end_socket, new_server_addr, &server_cmd, &server_sync);
+        } else
+            printf("Message ignored by front_end_socket. Type: %x\n", msg.header.type);
     }
 }
 

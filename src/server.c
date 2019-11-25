@@ -68,7 +68,7 @@ void *thread_client_cmd(void *thread_info){
 					strcat(file_path,file_info.filename);
 					//Envia arquivo recebido para todos os servidores de backup
 					for(i = 0; i < n_backup_servers; i++){
-						send_file(backup_cmd_servers[i],file_path);
+						send_file(backup_cmd_servers[i], file_path);
 					}
 					
 					printf("✅ OK!\n");
@@ -215,7 +215,7 @@ void *thread_client_sync(void *thread_info){
                     if(strlen((*cmd).argument) > 0){
                         printf("📝 [%s:%d] %s: SYNC deleting %s...		", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username, cmd->argument);
 						fflush(stdout);
-						if(delete(cmd->argument, user_dir) <0)
+						if(delete(cmd->argument, user_dir) < 0)
 							printf("Error deleting file : %s\n", strerror(errno));
 						
 						REMOTE_ADDR *backup_cmd_servers;

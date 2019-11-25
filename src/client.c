@@ -264,10 +264,7 @@ int request_sync(){
 
     n_entries = get_dir_status(LOCAL_DIR, &entries);
 
-    if(send_command(sock_sync, server_sync, SYNC_DIR, NULL, 0) < 0){
-        printf("ERROR sending sync cmd: %s\n", strerror(errno));
-        return -1;
-    }
+    send_command(sock_sync, server_sync, SYNC_DIR, NULL, DEFAULT_TIMEOUT);
 
     do {
         n = recv_packet(sock_sync, NULL, &recv_entries_pkt, 0);
@@ -343,8 +340,7 @@ void *sync_files(){
             }
         }
         
-        if(request_sync() < 0)
-            printf ("Error sync_files request_sync: %s\n", strerror(errno));
+        request_sync();
     }
 }
 

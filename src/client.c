@@ -368,6 +368,8 @@ void *front_end(){
         recv_packet(front_end_socket, &new_server_addr, &msg, 0);
 
         new_server_addr.port = PORT;
+        server_cmd = new_server_addr;
+        server_sync = new_server_addr;
         hello(username, front_end_socket, new_server_addr, &server_cmd, &server_sync);
     }
 }

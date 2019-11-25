@@ -142,8 +142,6 @@ int exit_client(){
     return send_command(sock_cmd, server_cmd, EXIT, NULL, DEFAULT_TIMEOUT);
 };
 
-
-
 void print_cli_options(){
     printf("\nAvailable commands:\n\n");
     printf("\t📤  upload <path/filename.ext>\n");

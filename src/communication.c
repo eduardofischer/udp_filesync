@@ -146,7 +146,7 @@ int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen){
 /** 
  *  Envia um comando genérico ao servidor e aguarda pelo ack do mesmo 
  * */
-int send_command(int socket, REMOTE_ADDR server, char command, char* arg, int usec_timeout){
+int send_command(int socket, REMOTE_ADDR server, char command, char* arg, int msec_timeout){
     PACKET packet;
 
     //Prepara o pacote de comando
@@ -162,7 +162,7 @@ int send_command(int socket, REMOTE_ADDR server, char command, char* arg, int us
         strcpy((*(COMMAND *) &(packet.data)).argument, "");
     };
     //Envia o pacote
-    return send_packet(socket, server, packet, usec_timeout);
+    return send_packet(socket, server, packet, msec_timeout);
 }
 
 /**
@@ -373,19 +373,16 @@ int write_packet_to_the_file(PACKET *packet, FILE *file){
 */
 int hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_address, REMOTE_ADDR *sync_address){
     PACKET packet, response;
-    int n;
 
     packet.header.type = HELLO;
     strcpy((char *)&(packet.data), username);
 
-    n = send_packet(socket, destination, packet, DEFAULT_TIMEOUT);
-
-    if (n < 0){
+    if (send_packet(socket, destination, packet, 0) < 0) {
         fprintf(stderr, "ERROR! HELLO failed\n");
         return -1;;
     }
 
-    if(recv_packet(socket, NULL, &response, 0) < 0){
+    if (recv_packet(socket, NULL, &response, 0) < 0) {
         printf("ERROR hello: timeout\n");
         return -1;
     }

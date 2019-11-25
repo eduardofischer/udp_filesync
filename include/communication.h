@@ -47,6 +47,7 @@
 #define ELECTION    0x06
 #define NEW_DEVICE  0x07
 #define NEW_LEADER  0x08
+#define CLOSE       0x09
 
 /** Codigos dos comandos **/
 #define UPLOAD   0x04
@@ -140,7 +141,7 @@ int ack(int socket, struct sockaddr *cli_addr, socklen_t clilen);
 /** 
  *  Envia um comando genérico ao servidor e aguarda pelo ack do mesmo 
  * */
-int send_command(int socket, REMOTE_ADDR server, char command, char* arg, int usec_timeout);
+int send_command(int socket, REMOTE_ADDR server, char command, char* arg, int msec_timeout);
 
 /** 
  *  Envia um comando de upload ao servidor e aguarda pelo ack do mesmo 

@@ -244,7 +244,7 @@ int send_file(REMOTE_ADDR address, char *filePath){
                     dataToTransfer.header.length = currentPacketLenght;
                             
                     //Enquanto o servidor não recebeu o pacote, tenta re-enviar pra ele
-                    while(send_packet(socketDataTransfer,address,dataToTransfer,0) < 0);
+                    while(send_packet(socketDataTransfer, address, dataToTransfer, DEFAULT_TIMEOUT) < 0);
                     
                     //Tamanho restante a ser transmitido
                     sourceFileSizeRemaining -= currentPacketLenght;

@@ -545,6 +545,7 @@ int declare_main_server(int socket) {
 
 	delete_addr_list_index(backup_index, backup_servers, &n_backup_servers);
 	update_backup_lists(socket);
+	resetDevicesList();
 
 	return 0;
 }
@@ -693,6 +694,7 @@ int run_backup_mode() {
 				electing = 1;
 				main_server.ip = rem_addr.ip;
 				main_server.port = PORT;
+				resetDevicesList();
 				printf("⭐  %s:%d is the new main server!\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), main_server.port);
 				break;
 			
@@ -888,4 +890,13 @@ int main(int argc, char *argv[]){
 	hdestroy();
 
     return 0;
+}
+
+
+/*	DEVE SER CHAMADA APENAS QUANDO UM NOVO SERVER ASSUME.
+	Desaloca memória associada a lista de devices e seta o número para 0.
+*/
+void resetDevicesList(){
+	free(connected_devices);
+	n_devices = 0;
 }

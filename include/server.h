@@ -51,4 +51,9 @@ void *thread_backup_cmd(void *thread_info);
 
 int new_backup(CLIENT_INFO* backup_info);
 
+/*	DEVE SER CHAMADA APENAS QUANDO UM NOVO SERVER ASSUME.
+	Desaloca memória associada a lista de devices e seta o número para 0.
+*/
+void resetDevicesList();
+
 #endif

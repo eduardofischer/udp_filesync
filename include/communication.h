@@ -25,6 +25,7 @@
 #define PORT 4000
 #define FRONT_END_PORT 4747
 #define ALIVE_PORT 4949
+#define HELLO_PORT 8787
 
 /**Erros */
 #define ERR_SOCKET -1

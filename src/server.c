@@ -781,7 +781,7 @@ int run_server_mode() {
     listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, PORT);
 
 	hello_socket = create_udp_socket();
-	hello_socket = bind_udp_socket(hello_socket, INADDR_ANY, PORT);
+	hello_socket = bind_udp_socket(hello_socket, INADDR_ANY, HELLO_PORT);
 
 	inform_device_socket = create_udp_socket();
 	inform_device_socket = bind_udp_socket(inform_device_socket,INADDR_ANY,inform_device);

@@ -526,7 +526,7 @@ int declare_main_server(int socket) {
 
 	backup_mode = 0;
 	msg.header.type = CLOSE;
-	printf("Enviando CLOSE para %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[backup_index].ip), backup_servers[backup_index].port);
+	//printf("Enviando CLOSE para %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[backup_index].ip), backup_servers[backup_index].port);
 	if(send_packet(socket, backup_servers[backup_index], msg, 0) < 0)
 		printf("ERROR sending CLOSE packet to backup_mode...\n");
 
@@ -535,7 +535,7 @@ int declare_main_server(int socket) {
 	// Informa os demais backup_servers
 	for (i=0; i < n_backup_servers; i++){
 		if (i != backup_index) {
-			printf("Sending NEW_LEADER to %s:%d\n",  inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+			//printf("Sending NEW_LEADER to %s:%d\n",  inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 			if(send_packet(socket, backup_servers[i], msg, DEFAULT_TIMEOUT) < 0)
 				printf("Msg NEW_LEADER perdida...\n");
 		}
@@ -549,7 +549,7 @@ int declare_main_server(int socket) {
 	// Avisa os dispositivos (clientes) sobre o novo server principal, requisitando
 	//que façam login novamente
 	for(i=0; i < n_devices; i++){
-		printf("Enviando request de hello para device %s:%d\n", inet_ntoa(*(struct in_addr *) &connected_devices[i].ip), connected_devices[i].port);
+		//printf("Enviando request de hello para device %s:%d\n", inet_ntoa(*(struct in_addr *) &connected_devices[i].ip), connected_devices[i].port);
 		if(send_packet(socket, connected_devices[i], msg, 1000) < 0)
 			printf("Msg request hello to device perdida...\n");
 	}
@@ -573,7 +573,7 @@ void *start_election() {
 
 	for (i = backup_index + 1; i < n_backup_servers; i++) {
 		if(i != backup_index) {
-			printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+			//printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 			if(send_election_msg(election_socket, backup_servers[i], DEFAULT_TIMEOUT) < 0)
 				printf("Msg ELECTION perdida...\n");
 			else
@@ -668,7 +668,7 @@ void *run_backup_mode() {
 	CLIENT_INFO backup_info;
 	REMOTE_ADDR device_to_delete;
 	int index_to_delete;	
-	pthread_t thr_alive, thr_election;
+	pthread_t thr_election;
 
 	pthread_create(&thr_alive, NULL, is_server_alive, NULL);
 
@@ -843,7 +843,7 @@ int run_server_mode() {
 						REMOTE_ADDR new_backup_server_cmd;
 						new_backup_server_cmd.ip = backup_servers[i].ip;
 						REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
-						printf("Enviando HELLO para %s:%d \n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+						//printf("Enviando HELLO para %s:%d \n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 						if(hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync) < 0)
 							printf("Msg de HELLO para %s:%d falhou...\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 						//backup_adresses[i] = new_backup_server_cmd recebido

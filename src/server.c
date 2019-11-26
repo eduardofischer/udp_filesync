@@ -538,7 +538,7 @@ int declare_main_server(int socket) {
 	// Informa os demais backup_servers
 	for (i=0; i < n_backup_servers; i++){
 		if (i != backup_index) {
-			//printf("Sending NEW_LEADER to %s:%d\n",  inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+			printf("Sending NEW_LEADER to %s:%d\n",  inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 			if(send_packet(socket, backup_servers[i], msg, DEFAULT_TIMEOUT) < 0)
 				printf("Msg NEW_LEADER perdida...\n");
 		}
@@ -552,7 +552,7 @@ int declare_main_server(int socket) {
 	// Avisa os dispositivos (clientes) sobre o novo server principal, requisitando
 	//que façam login novamente
 	for(i=0; i < n_devices; i++){
-		//printf("Enviando request de hello para device %s:%d\n", inet_ntoa(*(struct in_addr *) &connected_devices[i].ip), connected_devices[i].port);
+		printf("Enviando request de hello para device %s:%d\n", inet_ntoa(*(struct in_addr *) &connected_devices[i].ip), connected_devices[i].port);
 		if(send_packet(socket, connected_devices[i], msg, 1000) < 0)
 			printf("Msg request hello to device perdida...\n");
 	}
@@ -575,7 +575,7 @@ void *start_election() {
 
 	for (i = backup_index + 1; i < n_backup_servers; i++) {
 		if(i != backup_index) {
-			//printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+			printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 			if(send_election_msg(election_socket, backup_servers[i], DEFAULT_TIMEOUT) < 0)
 				printf("Msg ELECTION perdida...\n");
 			else
@@ -603,9 +603,9 @@ void *is_server_alive(){
 		alive_addr.port = ALIVE_PORT;
 
 		if (electing == 0) {
-			//printf("Are you alive server?\n");
+			printf("Are you alive server?\n");
 			if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
-				//printf("No response to ALIVE from %s:%d\n",  inet_ntoa(*(struct in_addr *) &alive_addr.ip), alive_addr.port);
+				printf("No response to ALIVE from %s:%d\n",  inet_ntoa(*(struct in_addr *) &alive_addr.ip), alive_addr.port);
 				printf("🚨  Main server is down! Starting election\n");
 				if (electing == 0) {
 					electing = 1;		
@@ -698,7 +698,7 @@ void *run_backup_mode() {
 				backup_index = (int) *(msg.data + sizeof(int));
 				backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
-				//list_backup_servers();
+				list_backup_servers();
 				electing = 0;
 				break;
 
@@ -713,7 +713,7 @@ void *run_backup_mode() {
 				n_devices++;
 				connected_devices = realloc(connected_devices, sizeof(REMOTE_ADDR) * n_devices);
 				connected_devices[n_devices-1] = *((REMOTE_ADDR*) msg.data);
-				//printf("New device [%s:%d] has logged\n", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
+				printf("New device [%s:%d] has logged\n", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
 				break;
 
 			case NEW_LEADER:
@@ -735,7 +735,7 @@ void *run_backup_mode() {
 				index_to_delete = find_device_index(connected_devices,n_devices,device_to_delete);
 				delete_addr_list_index(index_to_delete,connected_devices,&n_devices);
 				
-				//printf("New device [%s:%d] has been deleted\n", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
+				printf("New device [%s:%d] has been deleted\n", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
 				
 				break;
 			

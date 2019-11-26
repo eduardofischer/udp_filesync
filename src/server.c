@@ -699,7 +699,6 @@ void *run_backup_mode() {
 				backup_index = (int) *(msg.data + sizeof(int));
 				backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
-				printf("Backups list updated:");
 				//list_backup_servers();
 				electing = 0;
 				break;

@@ -20,9 +20,11 @@
 #define FILE_NAME_SIZE 255
 #define MAX_TIMEOUTS 3
 #define DEFAULT_TIMEOUT 500 // ms
+#define ALIVE_DELAY 1
 
 #define PORT 4000
 #define FRONT_END_PORT 4747
+#define ALIVE_PORT 4949
 
 /**Erros */
 #define ERR_SOCKET -1

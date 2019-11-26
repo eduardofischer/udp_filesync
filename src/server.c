@@ -12,12 +12,14 @@
 int listen_socket, port = PORT, inform_device = 3034;
 int backup_mode = 0;
 int backup_index = -1, backup_socket, n_backup_servers = 0, electing = 0, n_devices = 0;
+int alive_delay = ALIVE_DELAY;
 sem_t file_is_created;
 char hostname[MAX_NAME_LENGTH];
 REMOTE_ADDR main_server; // Servidor principal
 REMOTE_ADDR *backup_servers; // Lista de servidores de backup~
 REMOTE_ADDR *connected_devices; //Lista de devices (USADO SOMENTE EM SERVIDORES DE BACKUP)
 sem_t sem_election;
+pthread_t thr_backup, thr_alive;
 
 /** 
  *  Escuta um cliente em um determinado socket 
@@ -513,9 +515,9 @@ int declare_main_server(int socket) {
 	int i;
 	PACKET msg;
 
-	printf("⭐  I am the new main server!\n");
+	pthread_cancel(thr_alive);
 
-	list_backup_servers();
+	printf("⭐  I am the new main server!\n");
 
 	backup_mode = 0;
 	msg.header.type = CLOSE;
@@ -536,10 +538,9 @@ int declare_main_server(int socket) {
 
 	sem_wait(&sem_election);
 
-	sleep(1);
-
 	msg.header.type = FRONT_END;
 	memcpy(msg.data, &port, sizeof(int));
+
 	// Avisa os dispositivos (clientes) sobre o novo server principal, requisitando
 	//que façam login novamente
 	for(i=0; i < n_devices; i++){
@@ -549,26 +550,26 @@ int declare_main_server(int socket) {
 	}
 
 	delete_addr_list_index(backup_index, backup_servers, &n_backup_servers);
-	update_backup_lists(socket);
 	resetDevicesList();
+	update_backup_lists(socket);
 
 	return 0;
 }
 
-int send_election_msg(int socket, REMOTE_ADDR server) {
+int send_election_msg(int socket, REMOTE_ADDR server, int msec_timeout) {
 	PACKET msg;
 	msg.header.type = ELECTION;
-	return send_packet(socket, server, msg, DEFAULT_TIMEOUT);
+	return send_packet(socket, server, msg, msec_timeout);
 }
 
 void *start_election() {
 	int i;
 	int election_socket = create_udp_socket();
 
-	for (i=backup_index + 1; i < n_backup_servers; i++) {
+	for (i = backup_index + 1; i < n_backup_servers; i++) {
 		if(i != backup_index) {
 			printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
-			if(send_election_msg(election_socket, backup_servers[i]) < 0)
+			if(send_election_msg(election_socket, backup_servers[i], DEFAULT_TIMEOUT) < 0)
 				printf("Msg ELECTION perdida...\n");
 			else
 				return NULL;
@@ -584,28 +585,43 @@ void *start_election() {
 void *is_server_alive(){
 	PACKET msg;
 	int alive_socket = create_udp_socket();
-	pthread_t election_thread;
+	REMOTE_ADDR alive_addr; 
+	pthread_t thr_election;
 
 	msg.header.type = ALIVE;
 
 	while(1) {
-		sleep(1);
+		sleep(alive_delay);
+
+		alive_addr.ip = main_server.ip;
+		alive_addr.port = ALIVE_PORT;
+
 		if (electing == 0) {
-			if(send_packet(alive_socket, main_server, msg, DEFAULT_TIMEOUT) < 0) {
-				if (electing == 0) {
-					electing = 1;
+			//printf("Are you alive server?\n");
+			if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
+				if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
 					printf("🚨  Main server is down! Starting election\n");
-					pthread_create(&election_thread, NULL, start_election, NULL);
-					pthread_join(election_thread, NULL);
+					if (electing == 0) {
+						electing = 1;		
+						pthread_create(&thr_election, NULL, start_election, NULL);
+						pthread_join(thr_election, NULL);
+					}
 				}
 			}
-		} else {
-			// Caso esteja ocorendo uma eleição, espera 5 segundos até tentar novamente
-			sleep(5);
 		}
+		alive_delay = ALIVE_DELAY;
 	}
 
 	return NULL;
+}
+
+/*	DEVE SER CHAMADA APENAS QUANDO UM NOVO SERVER ASSUME.
+	Desaloca memória associada a lista de devices e seta o número para 0.
+*/
+void resetDevicesList(){
+	free(connected_devices);
+	connected_devices = malloc(sizeof(REMOTE_ADDR));
+	n_devices = 0;
 }
 
 int new_backup_user(CLIENT_INFO* backup_info){
@@ -641,11 +657,11 @@ int new_backup_user(CLIENT_INFO* backup_info){
 	return 0;
 }
 
-int run_backup_mode() {
+void *run_backup_mode() {
 	PACKET msg;
 	REMOTE_ADDR rem_addr;
 	CLIENT_INFO backup_info;	
-	pthread_t thr_alive, thr_election;
+	pthread_t thr_election;
 
 	pthread_create(&thr_alive, NULL, is_server_alive, NULL);
 
@@ -697,6 +713,7 @@ int run_backup_mode() {
 
 			case NEW_LEADER:
 				electing = 1;
+				alive_delay = 3;
 				main_server.ip = rem_addr.ip;
 				main_server.port = PORT;
 				resetDevicesList();
@@ -704,15 +721,30 @@ int run_backup_mode() {
 				break;
 			
 			case CLOSE:
-				return 0;
-				break;
+				return NULL;
 
 			default:
 				printf("📡 [%s:%d] WARNING: Message ignored by backup_socket: %x\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, msg.header.type);
 		}		
 	}
 
-	return 0;
+	return NULL;
+}
+
+// Thread to reply ALIVE messages
+void *reply_alive(){
+	int socket_alive;
+	PACKET msg;
+	REMOTE_ADDR addr;
+
+	socket_alive = create_udp_socket();
+	socket_alive = bind_udp_socket(socket_alive, INADDR_ANY, ALIVE_PORT);
+
+	while (1) {
+		recv_packet(socket_alive, &addr, &msg, 0);
+		if (msg.header.type != ALIVE)
+			printf("📡 [%s:%d] WARNING: Message ignored by socket_alive: %x\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, msg.header.type);
+	}
 }
 
 int run_server_mode() {
@@ -721,6 +753,9 @@ int run_server_mode() {
 	REMOTE_ADDR device_addr;
 	CLIENT_INFO client_info;
 	int i, inform_device_socket;
+	pthread_t thr_alive;
+
+	pthread_create(&thr_alive, NULL, reply_alive, NULL);
 
 	// Cria o socket UDP para conexão de novos clientes
     listen_socket = create_udp_socket();
@@ -737,6 +772,8 @@ int run_server_mode() {
 
 		if (recv_packet(listen_socket, &rem_addr, &msg, 0) < 0)
 			printf("ERROR recv_packet listen_socket\n");
+
+		pthread_cancel(thr_backup);
 
 		sem_init(&file_is_created, 0, 0);
 
@@ -826,10 +863,6 @@ int run_server_mode() {
 
 				update_backup_lists(listen_socket);
 				break;
-			
-			case ALIVE:
-				// Ack enviado pela recv_packet
-				break;
 
 			default:
 				printf("📡 [%s:%d] WARNING: Message ignored by listen_socket Type: %x\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), rem_addr.port, msg.header.type);
@@ -881,7 +914,8 @@ int main(int argc, char *argv[]){
 			// FAZER AS COISAS DO BACKUP MODE AQUI
 			printf("✅  Server running at %s:%d (BACKUP SERVER)\n", hostname, port);
 			printf("    Main server: %s\n\n", inet_ntoa(*(struct in_addr *) &main_server.ip));
-			run_backup_mode();
+			pthread_create(&thr_backup, NULL, run_backup_mode, NULL);
+			while(backup_mode);
 		}else{
 			// FAZER AS COISAS DO MAIN SERVER AQUI
 			printf("✅  Server running at %s:%d (MAIN SERVER)\n\n", hostname, PORT);
@@ -894,12 +928,3 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-
-/*	DEVE SER CHAMADA APENAS QUANDO UM NOVO SERVER ASSUME.
-	Desaloca memória associada a lista de devices e seta o número para 0.
-*/
-void resetDevicesList(){
-	free(connected_devices);
-	connected_devices = malloc(sizeof(REMOTE_ADDR));
-	n_devices = 0;
-}

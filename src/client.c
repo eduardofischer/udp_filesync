@@ -361,7 +361,7 @@ void *front_end(){
         REMOTE_ADDR new_server_addr;
         //Recebe uma mensagem qualquer do servidor indicando que há um novo server principal.
         if (recv_packet(front_end_socket, &new_server_addr, &msg, 0) < 0)
-            printf("ERROR recv_packet front_end\n");
+            printf("ERROR recv_packet front_end: %s\n", strerror(errno));
 
         if (msg.header.type == FRONT_END) {
             new_server_addr.port = PORT;

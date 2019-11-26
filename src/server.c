@@ -525,6 +525,8 @@ int declare_main_server(int socket) {
 
 	printf("⭐  I am the new main server!\n");
 
+	delete_addr_list_index(backup_index, backup_servers, &n_backup_servers);
+
 	backup_mode = 0;
 	//msg.header.type = CLOSE;
 	//printf("Enviando CLOSE para %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[backup_index].ip), backup_servers[backup_index].port);
@@ -555,7 +557,6 @@ int declare_main_server(int socket) {
 			printf("Msg request hello to device perdida...\n");
 	}
 
-	delete_addr_list_index(backup_index, backup_servers, &n_backup_servers);
 	resetDevicesList();
 	update_backup_lists(socket);
 
@@ -604,13 +605,11 @@ void *is_server_alive(){
 		if (electing == 0) {
 			//printf("Are you alive server?\n");
 			if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
-				if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
-					//printf("No response to ALIVE from %s:%d\n",  inet_ntoa(*(struct in_addr *) &alive_addr.ip), alive_addr.port);
-					printf("🚨  Main server is down! Starting election\n");
-					if (electing == 0) {
-						electing = 1;		
-						pthread_create(&thr_election, NULL, start_election, NULL);
-					}
+				//printf("No response to ALIVE from %s:%d\n",  inet_ntoa(*(struct in_addr *) &alive_addr.ip), alive_addr.port);
+				printf("🚨  Main server is down! Starting election\n");
+				if (electing == 0) {
+					electing = 1;		
+					pthread_create(&thr_election, NULL, start_election, NULL);
 				}
 			}
 		}

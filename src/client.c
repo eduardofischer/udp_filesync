@@ -11,6 +11,8 @@
 #include "../include/communication.h"
 #include "../include/filesystem.h"
 
+#define RAND_MAX 1000
+
 int sock_cmd, sock_sync;
 char username[64];
 REMOTE_ADDR server_cmd;
@@ -351,7 +353,7 @@ void interruption_handler(int sig){
 }
 
 void *front_end(){
-    PACKET msg, signal;
+    PACKET msg;
     int front_end_socket;
 
     front_end_socket = create_udp_socket();
@@ -367,8 +369,8 @@ void *front_end(){
             new_server_addr.port = PORT;
             server_cmd = new_server_addr;
             server_sync = new_server_addr;
+            sleep(rand());
             hello(username, front_end_socket, new_server_addr, &server_cmd, &server_sync);
-			send_packet(front_end_socket, new_server_addr, signal, 5000);
         } else
             printf("Message ignored by front_end_socket. Type: %x\n", msg.header.type);
     }

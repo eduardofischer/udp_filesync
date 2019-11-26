@@ -519,7 +519,7 @@ int update_backup_lists(int socket) {
 
 int declare_main_server(int socket) {
 	int i;
-	PACKET msg, signal;
+	PACKET msg;
 
 	pthread_cancel(thr_alive);
 
@@ -556,7 +556,6 @@ int declare_main_server(int socket) {
 		if(send_packet(socket, connected_devices[i], msg, 1000) < 0)
 			printf("Msg request hello to device perdida...\n");
 
-		if(recv_packet(socket,NULL,&signal,5000));
 	}
 
 	resetDevicesList();

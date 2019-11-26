@@ -51,6 +51,7 @@
 #define NEW_LEADER  0x08
 #define CLOSE       0x09
 #define FRONT_END   0x10
+#define DELETE_DEVICE 0x11
 
 /** Codigos dos comandos **/
 #define UPLOAD   0x04
@@ -173,4 +174,8 @@ int reply_hello(CONNECTION_INFO conn, int listen_socket);
 int deleteFile(char* fileName, REMOTE_ADDR remote);
 
 int send_new_device(int socket, REMOTE_ADDR server, REMOTE_ADDR *device_addr);
+
+int send_delete_device(int socket, REMOTE_ADDR server, REMOTE_ADDR *device_addr);
+
+int find_device_index(REMOTE_ADDR *device_list,int n_devices,REMOTE_ADDR to_search);
 #endif

@@ -204,6 +204,21 @@ int send_new_device(int socket, REMOTE_ADDR server, REMOTE_ADDR *device_addr){
     return send_packet(socket, server, packet, DEFAULT_TIMEOUT);
 }
 
+int send_delete_device(int socket, REMOTE_ADDR server, REMOTE_ADDR *device_addr){
+    PACKET packet;
+
+    //Prepara o pacote de comando
+    packet.header.type = DELETE_DEVICE;
+    packet.header.seqn = 0;
+    packet.header.total_size = 1;
+    packet.header.length = sizeof(PACKET);
+    
+    //Copia device_addr para o argumento de comando genérico, para não quebrar com a estrutura padrão.
+    memcpy(packet.data, device_addr, sizeof(REMOTE_ADDR));
+    return send_packet(socket, server, packet, DEFAULT_TIMEOUT);
+}
+
+
 /** Envia o arquivo para o servidor **/
 int send_file(REMOTE_ADDR address, char *filePath){
     int socketDataTransfer;
@@ -402,4 +417,14 @@ int reply_hello(CONNECTION_INFO conn, int listen_socket){
 	memcpy(&packet.data, &conn.ports, sizeof(SERVER_PORTS_FOR_CLIENT));
 
 	return send_packet(listen_socket, conn.client.client_addr, packet, 0);
+}
+/*Acha e retorna o indice de um device em uma lista. Caso não encontra retorna -1.
+*/
+int find_device_index(REMOTE_ADDR *device_list,int n_devices,REMOTE_ADDR to_search){
+    int i;
+    for(i = 0; i < n_devices; i++){
+        if((device_list[i].ip == to_search.ip) && (device_list[i].port == to_search.port))
+            return i;
+    }
+    return -1;
 }

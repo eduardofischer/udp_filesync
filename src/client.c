@@ -351,7 +351,7 @@ void interruption_handler(int sig){
 }
 
 void *front_end(){
-    PACKET msg;
+    PACKET msg, signal;
     int front_end_socket;
 
     front_end_socket = create_udp_socket();
@@ -368,6 +368,7 @@ void *front_end(){
             server_cmd = new_server_addr;
             server_sync = new_server_addr;
             hello(username, front_end_socket, new_server_addr, &server_cmd, &server_sync);
+			send_packet(front_end_socket, new_server_addr, signal, 5000);
         } else
             printf("Message ignored by front_end_socket. Type: %x\n", msg.header.type);
     }

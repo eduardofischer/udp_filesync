@@ -393,7 +393,7 @@ int hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_
     packet.header.type = HELLO;
     strcpy((char *)&(packet.data), username);
 
-	printf("Sending hello packet to [%s:%d] ", inet_ntoa(*(struct in_addr *) &(destination.ip)), destination.port);
+	printf("Sending hello packet to [%s:%d]\n", inet_ntoa(*(struct in_addr *) &(destination.ip)), destination.port);
 
     if (send_packet(socket, destination, packet, 0) < 0) {
         fprintf(stderr, "ERROR! HELLO failed\n");
@@ -405,7 +405,7 @@ int hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_
         return -1;
     }
 
-	printf("Receive hello response from [%s:%d] ", inet_ntoa(*(struct in_addr *) &(remetente.ip)), remetente.port);
+	printf("Receive hello response from [%s:%d]\n", inet_ntoa(*(struct in_addr *) &(remetente.ip)), remetente.port);
 
     if(response.header.type == HELLO){
         cmd_address->port = ((SERVER_PORTS_FOR_CLIENT *)&response.data)->port_cmd;

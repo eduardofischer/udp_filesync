@@ -388,19 +388,24 @@ int write_packet_to_the_file(PACKET *packet, FILE *file){
 */
 int hello(char *username, int socket, REMOTE_ADDR destination, REMOTE_ADDR *cmd_address, REMOTE_ADDR *sync_address){
     PACKET packet, response;
+	REMOTE_ADDR remetente;
 
     packet.header.type = HELLO;
     strcpy((char *)&(packet.data), username);
+
+	printf("Sending hello packet to [%s:%d] ", inet_ntoa(*(struct in_addr *) &(destination.ip)), destination.port);
 
     if (send_packet(socket, destination, packet, 0) < 0) {
         fprintf(stderr, "ERROR! HELLO failed\n");
         return -1;;
     }
 
-    if (recv_packet(socket, NULL, &response, 0) < 0) {
+    if (recv_packet(socket, &remetente, &response, 0) < 0) {
         printf("ERROR hello: timeout\n");
         return -1;
     }
+
+	printf("Receive hello response from [%s:%d] ", inet_ntoa(*(struct in_addr *) &(remetente.ip)), remetente.port);
 
     if(response.header.type == HELLO){
         cmd_address->port = ((SERVER_PORTS_FOR_CLIENT *)&response.data)->port_cmd;

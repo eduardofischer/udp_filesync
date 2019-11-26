@@ -603,7 +603,7 @@ void *is_server_alive(){
 		alive_addr.port = ALIVE_PORT;
 
 		if (electing == 0) {
-			printf("Are you alive server?\n");
+			//printf("Are you alive server?\n");
 			if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
 				printf("No response to ALIVE from %s:%d\n",  inet_ntoa(*(struct in_addr *) &alive_addr.ip), alive_addr.port);
 				printf("🚨  Main server is down! Starting election\n");

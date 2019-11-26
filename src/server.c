@@ -771,7 +771,7 @@ int run_server_mode() {
 	REMOTE_ADDR rem_addr;
 	REMOTE_ADDR device_addr;
 	CLIENT_INFO client_info;
-	int i, inform_device_socket;
+	int i, inform_device_socket, hello_socket;
 	pthread_t thr_alive;
 
 	pthread_create(&thr_alive, NULL, reply_alive, NULL);
@@ -779,6 +779,9 @@ int run_server_mode() {
 	// Cria o socket UDP para conexão de novos clientes
     listen_socket = create_udp_socket();
     listen_socket = bind_udp_socket(listen_socket, INADDR_ANY, PORT);
+
+	hello_socket = create_udp_socket();
+	hello_socket = bind_udp_socket(hello_socket, INADDR_ANY, PORT);
 
 	inform_device_socket = create_udp_socket();
 	inform_device_socket = bind_udp_socket(inform_device_socket,INADDR_ANY,inform_device);
@@ -844,7 +847,7 @@ int run_server_mode() {
 						new_backup_server_cmd.ip = backup_servers[i].ip;
 						REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
 						//printf("Enviando HELLO para %s:%d \n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
-						if(hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync) < 0)
+						if(hello(client_info.username, hello_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync) < 0)
 							printf("Msg de HELLO para %s:%d falhou...\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 						//backup_adresses[i] = new_backup_server_cmd recebido
 						*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;

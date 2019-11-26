@@ -515,8 +515,11 @@ int declare_main_server(int socket) {
 
 	printf("⭐  I am the new main server!\n");
 
-	msg.header.type = CLOSE;
+	list_backup_servers();
+
 	backup_mode = 0;
+	msg.header.type = CLOSE;
+	printf("Enviando CLOSE para %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[backup_index].ip), backup_servers[backup_index].port);
 	if(send_packet(socket, backup_servers[backup_index], msg, 0) < 0)
 		printf("ERROR sending CLOSE packet to backup_mode...\n");
 
@@ -532,6 +535,8 @@ int declare_main_server(int socket) {
 	}
 
 	sem_wait(&sem_election);
+
+	sleep(1);
 
 	msg.header.type = FRONT_END;
 	memcpy(msg.data, &port, sizeof(int));
@@ -562,7 +567,7 @@ void *start_election() {
 
 	for (i=backup_index + 1; i < n_backup_servers; i++) {
 		if(i != backup_index) {
-			//printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+			printf("Sending ELECTION to %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
 			if(send_election_msg(election_socket, backup_servers[i]) < 0)
 				printf("Msg ELECTION perdida...\n");
 			else
@@ -746,8 +751,7 @@ int run_server_mode() {
 
 				//Independente do usuário, é necessário notificar um novo device para os servidores de backup
 				for(i = 0; i < n_backup_servers; i++){
-					if(i != backup_index)
-						send_new_device(inform_device_socket, backup_servers[i], &device_addr);
+					send_new_device(inform_device_socket, backup_servers[i], &device_addr);
 				}
 
 				// HASH TABLE
@@ -782,16 +786,14 @@ int run_server_mode() {
 
 					//Hello para servidores de backup e inicializar uma thread para cada usuario
 					for (i = 0; i < n_backup_servers; i++){
-						if(i != backup_index){
-							REMOTE_ADDR new_backup_server_cmd;
-							new_backup_server_cmd.ip = backup_servers[i].ip;
-							REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
-							printf("Enviando HELLO para %s:%d \n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
-							if(hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync) < 0)
-								printf("Msg de HELLO para %s:%d falhou...\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
-							//backup_adresses[i] = new_backup_server_cmd recebido
-							*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
-						}
+						REMOTE_ADDR new_backup_server_cmd;
+						new_backup_server_cmd.ip = backup_servers[i].ip;
+						REMOTE_ADDR new_backup_server_sync; //Na verdade não é usado, apenas para manter compatibilidade com a versão de server
+						printf("Enviando HELLO para %s:%d \n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+						if(hello(client_info.username, listen_socket, backup_servers[i], &new_backup_server_cmd, &new_backup_server_sync) < 0)
+							printf("Msg de HELLO para %s:%d falhou...\n", inet_ntoa(*(struct in_addr *) &backup_servers[i].ip), backup_servers[i].port);
+						//backup_adresses[i] = new_backup_server_cmd recebido
+						*((((CLIENT_MUTEX_AND_BACKUP*)(user_to_add->data))->backup_addresses) + i) = new_backup_server_cmd;
 					}
 
 					user_to_add->key = client_info.username;
@@ -898,5 +900,6 @@ int main(int argc, char *argv[]){
 */
 void resetDevicesList(){
 	free(connected_devices);
+	connected_devices = malloc(sizeof(REMOTE_ADDR));
 	n_devices = 0;
 }

@@ -119,6 +119,11 @@ void *thread_client_cmd(void *thread_info){
 					pthread_mutex_lock(&((((CLIENT_MUTEX_AND_BACKUP *)(found->data))->client_mutex).sync_or_command));
                     printf("📝 [%s:%d] %s: Client disconnected\n", inet_ntoa(*(struct in_addr *) &addr.ip), addr.port, info.client.username);
 					pthread_mutex_unlock(&((((CLIENT_MUTEX_AND_BACKUP *)(found->data))->client_mutex).sync_or_command));
+					//Envia o comando de deletar o device para os servidores de backup.
+					for(i = 0; i < n_backup_servers; i++){
+						send_delete_device(socket,backup_servers[i],&addr);
+					}
+					
 					pthread_cancel(info.tid_sync);
 					pthread_exit(NULL);
 
@@ -644,7 +649,9 @@ int new_backup_user(CLIENT_INFO* backup_info){
 int run_backup_mode() {
 	PACKET msg;
 	REMOTE_ADDR rem_addr;
-	CLIENT_INFO backup_info;	
+	CLIENT_INFO backup_info;
+	REMOTE_ADDR device_to_delete;
+	int index_to_delete;	
 	pthread_t thr_alive, thr_election;
 
 	pthread_create(&thr_alive, NULL, is_server_alive, NULL);
@@ -701,6 +708,16 @@ int run_backup_mode() {
 				main_server.port = PORT;
 				resetDevicesList();
 				printf("⭐  %s:%d is the new main server!\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), main_server.port);
+				break;
+
+			case DELETE_DEVICE:
+				device_to_delete = *((REMOTE_ADDR *)msg.data);			
+				
+				index_to_delete = find_device_index(connected_devices,n_devices,device_to_delete);
+				delete_addr_list_index(index_to_delete,connected_devices,&n_devices);
+				
+				//printf("New device [%s:%d] has been deleted\n", inet_ntoa(*(struct in_addr *) &(((REMOTE_ADDR *) msg.data)->ip)), ((REMOTE_ADDR*)msg.data)->port);
+				
 				break;
 			
 			case CLOSE:

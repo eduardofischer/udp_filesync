@@ -605,7 +605,7 @@ void *is_server_alive(){
 			//printf("Are you alive server?\n");
 			if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
 				if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
-					printf("No response to ELECTION from %s:%d\n",  inet_ntoa(*(struct in_addr *) &alive_addr.ip), alive_addr.port);
+					//printf("No response to ALIVE from %s:%d\n",  inet_ntoa(*(struct in_addr *) &alive_addr.ip), alive_addr.port);
 					printf("🚨  Main server is down! Starting election\n");
 					if (electing == 0) {
 						electing = 1;		
@@ -700,7 +700,7 @@ void *run_backup_mode() {
 				backup_servers = malloc(sizeof(REMOTE_ADDR) * n_backup_servers);
 				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
 				printf("Backups list updated:");
-				list_backup_servers();
+				//list_backup_servers();
 				electing = 0;
 				break;
 

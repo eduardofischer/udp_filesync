@@ -526,10 +526,10 @@ int declare_main_server(int socket) {
 	printf("⭐  I am the new main server!\n");
 
 	backup_mode = 0;
-	msg.header.type = CLOSE;
+	//msg.header.type = CLOSE;
 	//printf("Enviando CLOSE para %s:%d\n", inet_ntoa(*(struct in_addr *) &backup_servers[backup_index].ip), backup_servers[backup_index].port);
-	if(send_packet(socket, backup_servers[backup_index], msg, 0) < 0)
-		printf("ERROR sending CLOSE packet to backup_mode...\n");
+	//if(send_packet(socket, backup_servers[backup_index], msg, 0) < 0)
+		//printf("ERROR sending CLOSE packet to backup_mode...\n");
 
 
 	msg.header.type = NEW_LEADER;
@@ -605,11 +605,11 @@ void *is_server_alive(){
 			//printf("Are you alive server?\n");
 			if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
 				if(send_packet(alive_socket, alive_addr, msg, DEFAULT_TIMEOUT) < 0) {
+					printf("No response to ELECTION from %s:%d\n",  inet_ntoa(*(struct in_addr *) &alive_addr.ip), alive_addr.port);
 					printf("🚨  Main server is down! Starting election\n");
 					if (electing == 0) {
 						electing = 1;		
 						pthread_create(&thr_election, NULL, start_election, NULL);
-						pthread_join(thr_election, NULL);
 					}
 				}
 			}
@@ -701,7 +701,6 @@ void *run_backup_mode() {
 				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
 				printf("Backups list updated:");
 				list_backup_servers();
-				printf("Eleição liberada\n");
 				electing = 0;
 				break;
 
@@ -721,10 +720,13 @@ void *run_backup_mode() {
 
 			case NEW_LEADER:
 				electing = 1;
-				alive_delay = 3;
+				alive_delay = 4;
 				main_server.ip = rem_addr.ip;
 				alive_addr.ip = rem_addr.ip;
 				main_server.port = PORT;
+				// Restart alive thread
+				pthread_cancel(thr_alive);
+				pthread_create(&thr_alive, NULL, is_server_alive, NULL);
 				resetDevicesList();
 				printf("⭐  %s:%d is the new main server!\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), main_server.port);
 				break;

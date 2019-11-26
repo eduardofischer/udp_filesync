@@ -16,6 +16,7 @@ int alive_delay = ALIVE_DELAY;
 sem_t file_is_created;
 char hostname[MAX_NAME_LENGTH];
 REMOTE_ADDR main_server; // Servidor principal
+REMOTE_ADDR alive_addr; 
 REMOTE_ADDR *backup_servers; // Lista de servidores de backup~
 REMOTE_ADDR *connected_devices; //Lista de devices (USADO SOMENTE EM SERVIDORES DE BACKUP)
 sem_t sem_election;
@@ -590,7 +591,6 @@ void *start_election() {
 void *is_server_alive(){
 	PACKET msg;
 	int alive_socket = create_udp_socket();
-	REMOTE_ADDR alive_addr; 
 	pthread_t thr_election;
 
 	msg.header.type = ALIVE;
@@ -701,6 +701,7 @@ void *run_backup_mode() {
 				memcpy(backup_servers, msg.data + sizeof(int)*2, sizeof(REMOTE_ADDR) * n_backup_servers);
 				printf("Backups list updated:");
 				list_backup_servers();
+				printf("Eleição liberada\n");
 				electing = 0;
 				break;
 
@@ -722,6 +723,7 @@ void *run_backup_mode() {
 				electing = 1;
 				alive_delay = 3;
 				main_server.ip = rem_addr.ip;
+				alive_addr.ip = rem_addr.ip;
 				main_server.port = PORT;
 				resetDevicesList();
 				printf("⭐  %s:%d is the new main server!\n", inet_ntoa(*(struct in_addr *) &rem_addr.ip), main_server.port);
@@ -789,8 +791,6 @@ int run_server_mode() {
 
 		if (recv_packet(listen_socket, &rem_addr, &msg, 0) < 0)
 			printf("ERROR recv_packet listen_socket\n");
-
-		pthread_cancel(thr_backup);
 
 		sem_init(&file_is_created, 0, 0);
 
